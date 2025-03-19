@@ -30,6 +30,7 @@ public class Parser{
         Dictionary<string, HashSet<string>> entities = new();
         EntityParser entityParser = new(_streamer, entities);
         ArchitectureParser architectureParser = new(_streamer, entities);
+        PackageParser packageParser = new(_streamer, entities);
         while(!_streamer.EndStream())
             switch(_streamer.Current?.Value.ToLower()){
                 case "entity":
@@ -39,7 +40,8 @@ public class Parser{
                     architectureParser.Parse();
                 break;
                 case "package":
-                    throw new NotImplementedException();
+                    packageParser.Parse();
+                break;
                 default:
                     throw new NotImplementedException();
                 //break;

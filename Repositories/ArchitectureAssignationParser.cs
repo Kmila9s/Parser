@@ -12,7 +12,6 @@ public class ArchitectureAssignationParser : IParseDeclarations{
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;
     private string _name = string.Empty, _entityName = string.Empty;
-
     public ArchitectureAssignationParser(TokenStream stream, Dictionary<string, HashSet<string>> scopes, string Name, string EntityName = "")
     {
         _streamer = stream;
@@ -20,7 +19,7 @@ public class ArchitectureAssignationParser : IParseDeclarations{
         _scopes = scopes;
         _entityName = EntityName;
     }
-    public void Parse(){
+    public virtual void Parse(){
         _logger.LogInformation("Parsing Architecture Assignatinos");
         ParseDeclarations();
         _logger.LogInformation("Architecture assignations parsed");
