@@ -48,9 +48,11 @@ public class FunctionParser : IParseStructures {
         _logger.LogInformation("Parsing function");
         _streamer.Expect(KEYWORDS);
         _name = _streamer.Current?.Value ?? string.Empty;
+        if(_scopes.ContainsKey(_root) && !_scopes[_root].Contains(_name)){
+            _scopes[_root].Add(_name);
+            _scopes.Add(_name, new());
+        }
         _streamer.Expect(IDENTIFIERS);
-        if(_scopes.ContainsKey(_root) && _scopes[_root].Contains(_name))
-            throw new ParserException(DUPLICATE_DECLARATION);
         if(_streamer.Current?.Type == PARENTHESIS){
             // FUNCTION WITH PARAMETERS
             _streamer.Expect(PARENTHESIS);
@@ -63,6 +65,8 @@ public class FunctionParser : IParseStructures {
         if(_streamer.Current?.Type == OPERATORS){
             _streamer.Expect(OPERATORS);
             _logger.LogInformation("Single Function Parsed");
+            _scopes.Remove(_name);
+            _scopes[_root].Remove(_name);
             return;
         }
         // Function with body

@@ -27,6 +27,13 @@ public class VectorParser : IParseVectorStructure {
         }
         _logger.LogInformation("Vector Parsed");
     }
+    public void ParseAttributes(){
+        var variable = _streamer.Current?.Value.Split("'")[0];
+        var attribute = _streamer.Current?.Value.Split("'")[1];
+        if(!ExistsVariable(variable ?? string.Empty))
+            throw new ParserException(MISSING_DECLARATION);
+        _streamer.MoveNext();
+    }
     private bool IsVector(string dataType) 
         => dataType.Equals("STD_LOGIC_VECTOR") || dataType.Equals("BIT_VECTOR") ||
             dataType.Equals("BOOLEAN_VECTOR") || dataType.Equals("INTEGER_VECTOR");
@@ -48,7 +55,9 @@ public class VectorParser : IParseVectorStructure {
             }
             if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "not")
                 _streamer.MoveNext();
-            if(_streamer.Current?.Type == IDENTIFIERS)
+            if(_streamer.Current?.Type == VECTORS_ATTRIBUTES)
+                ParseAttributes();
+            else if(_streamer.Current?.Type == IDENTIFIERS)
                 if(!ExistsVariable(_streamer.Current.Value))
                     throw new ParserException(MISSING_DECLARATION);
                 else
@@ -57,7 +66,7 @@ public class VectorParser : IParseVectorStructure {
                 _streamer.Expect(LITERALS);
             if(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";")
                 _streamer.Expect(OPERATORS);
-            else if(_streamer.Current?.Type == KEYWORDS)
+            else if(_streamer.Current?.Type == KEYWORDS && _streamer.Current.Value.ToString() != "downto")
                 if(_streamer.Current.Value.ToLower().Equals("after")){
                     _streamer.MoveNext();
                     if(_streamer.Current?.Type == LITERALS || (_streamer.Current?.Type == IDENTIFIERS && ExistsVariable(_streamer.Current.Value)))

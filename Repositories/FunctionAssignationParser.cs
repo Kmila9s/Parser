@@ -28,7 +28,7 @@ public class FunctionAssignationParser : IParseDeclarations {
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     public void ParseDeclarations(){
         while(_streamer.Current?.Type == IDENTIFIERS){
-            _streamer.Expect(IDENTIFIERS);
+            //_streamer.Expect(IDENTIFIERS);
             ParseWithComas();
             _streamer.Expect(OPERATORS); // :
             _streamer.Expect(KEYWORDS); // DATATYPE
