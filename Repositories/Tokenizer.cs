@@ -12,7 +12,7 @@ public class Tokenizer{
     private List<Token> _typeDictionary;
     private readonly Regex _keywordsRegex, _operatorsRegex, _parenthesisRegex,
     _identifiersRegex, _literalsRegex, _qualifiedIdentifiersRegex, _separatorsRegex,
-    _functionsRegex, _timeRegex;
+    _functionsRegex, _timeRegex, _vectorAttributes;
     public Tokenizer(string FilePath)
     {
         LastError = "";
@@ -29,6 +29,7 @@ public class Tokenizer{
         _separatorsRegex = new(Constants.SEPARATORS, optionsCompiled);
         _functionsRegex = new(Constants.FUNCTIONS, optionsCompiled);
         _timeRegex = new(Constants.TIME_VARIABLES, RegexOptions.IgnoreCase);
+        _vectorAttributes = new(Constants.VECTORS_ATTRIBUTES, optionsCompiled);
         _filePath = FilePath;
         ReadFile(FilePath);
     }
@@ -135,6 +136,8 @@ public class Tokenizer{
             return new(token, Constants.TYPE.SEPARATORS);
         else if(_functionsRegex.IsMatch(token))
             return new(token, Constants.TYPE.METHODS);
+        else if(_vectorAttributes.IsMatch(token))
+            return new(token, Constants.TYPE.VECTORS_ATTRIBUTES);
         else
             return new(token, Constants.TYPE.UNKNOWN);
     }

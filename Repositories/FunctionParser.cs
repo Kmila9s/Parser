@@ -8,7 +8,7 @@ public class FunctionParser : IParseStructures {
     private TokenStream _streamer;
     private readonly ILogger<ArchitectureParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureParser>();
     private Dictionary<string, HashSet<string>> _scopes = new();
-    private string _name = string.Empty, _root = string.Empty;
+    private string _name = string.Empty, _root = string.Empty, _returnType = string.Empty;
     private DataStructuresParser _dataStructuresParser = default!;
     private FunctionAssignationParser _functionAssignationParser = default!;
     public FunctionParser(TokenStream stream, Dictionary<string, HashSet<string>> scopes, string RootName)
@@ -26,7 +26,23 @@ public class FunctionParser : IParseStructures {
         _functionAssignationParser.Parse();
     }
     public void ParseBodyDeclaration(){
-        throw new NotImplementedException();
+        if(_streamer.Current?.Value.ToString() != "begin"){
+            // NOT EMPTY IS DECLARATION
+            string returnType = _streamer.Current?.Value.ToString() ?? string.Empty;
+            _streamer.Expect(KEYWORDS);
+            if(!returnType.ToLower().Equals(_returnType.ToLower()))
+                throw new ParserException(SYNTAX_ERROR);
+            if(returnType.ToLower().Equals("std_logic_vector")){
+                VectorParser vectorParser = new(_streamer, _scopes, _name);
+                vectorParser.ParseBody();
+            }
+            _streamer.Expect(OPERATORS); // ;
+            
+        }
+        _streamer.Expect(KEYWORDS); // begin
+        _dataStructuresParser = new(_streamer, _scopes, _name, string.Empty);
+        _dataStructuresParser.Parse();
+
     }
     public void Parse(){
         _logger.LogInformation("Parsing function");
@@ -42,6 +58,7 @@ public class FunctionParser : IParseStructures {
             _streamer.Expect(PARENTHESIS);
         }
         _streamer.Expect(KEYWORDS);
+        _returnType = _streamer.Current?.Value ?? string.Empty;
         _streamer.Expect(KEYWORDS); // RETURN DATATYPE
         if(_streamer.Current?.Type == OPERATORS){
             _streamer.Expect(OPERATORS);

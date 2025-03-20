@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Logging;
 using Parser.Models;
 
 namespace Parser.Repositories;
 public class TokenStream {
     private readonly List<Token> _tokens = new();
     private int _currentPosition = 0;
+    private readonly ILogger<TokenStream> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<TokenStream>();
     public TokenStream(List<Token> Tokens) {
         _tokens = Tokens;
     }
@@ -19,6 +21,11 @@ public class TokenStream {
     public bool EndStream() => _currentPosition >= _tokens.Count;
     public void Expect(Constants.TYPE ExpectedType){
         if(!Match(ExpectedType)){
+            if(Current?.Type == Constants.TYPE.UNKNOWN){
+                _logger.LogCritical($"Unknown token please check it out, skipping for simplicity: {Current?.Value}");
+                MoveNext();
+                return;
+            }
             throw new Exception($"Expected type: {ExpectedType}, found: {Current?.Type}");
         }
     }

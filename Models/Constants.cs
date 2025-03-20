@@ -10,6 +10,7 @@ public class Constants{
         SEPARATORS,
         METHODS,
         TIME_VARIABLES,
+        VECTORS_ATTRIBUTES,
         UNKNOWN
     }
     public enum ParseExceptions : int {
@@ -40,6 +41,5 @@ public class Constants{
     SPECIAL_METHODS = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+",
     SPECIAL_METHODS2 = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+\)",
     TIME_VARIABLES = @"^(fs|ps|ns|us|ms|sec|min|hr)$",
-    SPECIAL_ASIGNATION = @"^[_a-zA-Z][_a-zA-Z0-9]*\'[_a-zA-Z][_a-zA-Z0-9]*";
-
+    VECTORS_ATTRIBUTES = @"^[_a-zA-Z][_a-zA-Z0-9]*\'(last_value|last_event|last_active|event|stable|quiet|active|transaction|driving|driving_value|delayed|now|path_name|instance_name|base|high|low|left|right|length|range|reverse_range|ascending)";
 }

@@ -32,29 +32,50 @@ public class VectorParser : IParseVectorStructure {
             dataType.Equals("BOOLEAN_VECTOR") || dataType.Equals("INTEGER_VECTOR");
     public virtual void ParseBody(){
         _streamer.Expect(PARENTHESIS);
-        if(CheckVariable(_streamer.Current))
-            _streamer.Expect(IDENTIFIERS);
-        else
-            _streamer.Expect(LITERALS);
-        if(_streamer.Current?.Type == OPERATORS){
-            _streamer.MoveNext();
-            if(CheckVariable(_streamer.Current))
-                _streamer.Expect(IDENTIFIERS);
-            else
+        ParseOperation();
+        _streamer.Expect(KEYWORDS); // downto
+        ParseOperation();
+        _streamer.Expect(PARENTHESIS);
+    }
+    private void ParseOperation(){
+        while(_streamer.Current?.Value != ";" || _streamer.Current?.Type != PARENTHESIS){
+            if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
+                ParseParenthesis();
+                if((_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";") || _streamer.Current?.Type == KEYWORDS){
+                    _streamer.MoveNext();
+                    ParseOperation();
+                }
+            }
+            if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "not")
+                _streamer.MoveNext();
+            if(_streamer.Current?.Type == IDENTIFIERS)
+                if(!ExistsVariable(_streamer.Current.Value))
+                    throw new ParserException(MISSING_DECLARATION);
+                else
+                    _streamer.Expect(IDENTIFIERS);
+            else if(_streamer.Current?.Type == LITERALS)
                 _streamer.Expect(LITERALS);
-        }
-        _streamer.Expect(KEYWORDS);
-        if(CheckVariable(_streamer.Current))
-            _streamer.Expect(IDENTIFIERS);
-        else
-            _streamer.Expect(LITERALS);
-        if(_streamer.Current?.Type == OPERATORS){
-            _streamer.MoveNext();
-            if(CheckVariable(_streamer.Current))
-                _streamer.Expect(IDENTIFIERS);
+            if(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";")
+                _streamer.Expect(OPERATORS);
+            else if(_streamer.Current?.Type == KEYWORDS)
+                if(_streamer.Current.Value.ToLower().Equals("after")){
+                    _streamer.MoveNext();
+                    if(_streamer.Current?.Type == LITERALS || (_streamer.Current?.Type == IDENTIFIERS && ExistsVariable(_streamer.Current.Value)))
+                        _streamer.MoveNext();
+                    else
+                        throw new ParserException(SYNTAX_ERROR);
+                    _streamer.Expect(TIME_VARIABLES);
+                }else
+                    _streamer.Expect(KEYWORDS); // CASES LIKE XOR, AND, OR
+            else if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "(")
+                continue;
             else
-                _streamer.Expect(LITERALS);
+                break;
         }
+    }
+    private void ParseParenthesis(){
+        _streamer.Expect(PARENTHESIS);
+        ParseOperation();
         _streamer.Expect(PARENTHESIS);
     }
     protected bool CheckVariable(Token? current) 
