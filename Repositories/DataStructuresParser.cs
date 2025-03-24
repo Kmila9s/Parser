@@ -9,12 +9,14 @@ public class DataStructuresParser : IParseStructures {
     private readonly ILogger<DataStructuresParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<DataStructuresParser>();
     private Dictionary<string, HashSet<string>> _scopes = new();
     private string _name = string.Empty, _entityName = string.Empty;
-    public DataStructuresParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes, string name, string EntityName)
+    private bool _isFunction = false, _implicitDeclaration = false;
+    public DataStructuresParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes, string name, string EntityName, bool IsFunction = false)
     {
         _streamer = streamer;
         _scopes = scopes;
         _name = name;
         _entityName = EntityName;
+        _isFunction = IsFunction;
     }
     public string GetName() => _name;
     public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
@@ -173,7 +175,12 @@ public class DataStructuresParser : IParseStructures {
         while(_streamer.Current?.Type == IDENTIFIERS){
             string varName = _streamer.Current.Value;
             if(!ExistsVariable(varName))
-                throw new ParserException(MISSING_DECLARATION);
+                if(_isFunction && !_implicitDeclaration){
+                    _implicitDeclaration = true;
+                    string variable = _streamer.Current?.Value ?? string.Empty;
+                    _scopes[_name].Add(variable);
+                }else
+                    throw new ParserException(MISSING_DECLARATION);
             _streamer.Expect(IDENTIFIERS);
             _streamer.Expect(OPERATORS);
             ParseOperation();
@@ -194,7 +201,14 @@ public class DataStructuresParser : IParseStructures {
                 _streamer.MoveNext();
             if(_streamer.Current?.Type == IDENTIFIERS)
                 if(!ExistsVariable(_streamer.Current.Value))
-                    throw new ParserException(MISSING_DECLARATION);
+                    if(_isFunction && !_implicitDeclaration){
+                        _implicitDeclaration = true;
+                        string variable = _streamer.Current?.Value ?? string.Empty;
+                        _streamer.Expect(IDENTIFIERS);
+                        _scopes[_name].Add(variable);
+                    }
+                    else
+                        throw new ParserException(MISSING_DECLARATION);
                 else
                     _streamer.Expect(IDENTIFIERS);
             else if(_streamer.Current?.Type == LITERALS)

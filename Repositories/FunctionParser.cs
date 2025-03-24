@@ -40,7 +40,7 @@ public class FunctionParser : IParseStructures {
             
         }
         _streamer.Expect(KEYWORDS); // begin
-        _dataStructuresParser = new(_streamer, _scopes, _name, string.Empty);
+        _dataStructuresParser = new(_streamer, _scopes, _name, string.Empty, true);
         _dataStructuresParser.Parse();
 
     }
