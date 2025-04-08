@@ -8,7 +8,7 @@ public class RangeParser : VectorParser {
     private readonly TokenStream _streamer;
     private readonly ILogger<RangeParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<RangeParser>();
     private string _name;
-    public RangeParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes, string name)
+    public RangeParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes, string name)
     : base(streamer, scopes, name)
     {
         _streamer = streamer;

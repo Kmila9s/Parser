@@ -22,9 +22,44 @@ public class Constants{
         MISSING_DECLARATION,
         SYNTAX_ERROR
     }
+    public enum DATATYPES : int{
+        STD_LOGIC,
+        STD_LOGIC_VECTOR,
+        RANGE,
+        BIT,
+        BOOLEAN,
+        INTEGER,
+        NATURAL,
+        CHARACTER,
+        UNKNOWN,
+    }
+    public static DATATYPES GetDatatype(string value){
+        value = value.ToLower();
+        switch(value){
+            case "std_logic":
+                return DATATYPES.STD_LOGIC;
+            case "std_logic_vector":
+                return DATATYPES.STD_LOGIC_VECTOR;
+            case "range":
+                return DATATYPES.RANGE;
+            case "bit":
+                return DATATYPES.BIT;
+            case "boolean":
+                return DATATYPES.BOOLEAN;
+            case "INTEGER":
+                return DATATYPES.INTEGER;
+            case "NATURAL":
+                return DATATYPES.NATURAL; 
+            default:
+                return DATATYPES.UNKNOWN;
+        }
+    }
     public static List<string> SPECIALS_CHARACTERS = new(){
         "(", ")", "{", "}", "[", "]", ",", ";", "-", "+", "*", "/", "%", "#", "!", "@", "$", "^", "&",
         "=", ":", "<", ">", "?", "|"
+    };
+    public static HashSet<string> IF_OPERATORS = new(){
+        "=", "+", "-", "/", "*"
     };
 
     public const string 

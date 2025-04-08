@@ -8,11 +8,11 @@ namespace Parser.Repositories;
 public class EntityParser : IParseStructures {
     private TokenStream _streamer;
     private readonly ILogger<EntityParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<EntityParser>();
-    private Dictionary<string, HashSet<string>> _scopes = new();
+    private Dictionary<string, HashSet<Variable>> _scopes = new();
     private GenericParser _genericParser = default!;
     private PortsParser _portsParser = default!;
     private string _name = string.Empty;
-    public EntityParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes){
+    public EntityParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes){
         _streamer = streamer;
         _scopes = scopes;
     }
@@ -24,7 +24,7 @@ public class EntityParser : IParseStructures {
     public string GetName() => _name;
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
     public void ParseDeclaration(){
         _streamer.Expect(KEYWORDS);
         _name = _streamer.Current?.Value ?? string.Empty;

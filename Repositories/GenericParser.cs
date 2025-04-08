@@ -7,11 +7,11 @@ namespace Parser.Repositories;
 public class GenericParser : IParseGeneric {
     private TokenStream _streamer;
     private readonly ILogger<GenericParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<GenericParser>();
-    private Dictionary<string, HashSet<string>> _scopes;
+    private Dictionary<string, HashSet<Variable>> _scopes;
     private readonly VectorParser _vectorParser;
     private readonly RangeParser _rangeParser;
     private string _name = string.Empty;
-    public GenericParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes, string name)
+    public GenericParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes, string name)
     {
         _streamer = streamer;
         _scopes = scopes;
@@ -80,5 +80,5 @@ public class GenericParser : IParseGeneric {
     }
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
 }

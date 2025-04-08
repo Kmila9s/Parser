@@ -8,10 +8,10 @@ public class FunctionAssignationParser : IParseDeclarations {
     private TokenStream _streamer;
     private readonly ILogger<FunctionAssignationParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<FunctionAssignationParser>();
     private string _name = string.Empty, _entityName = string.Empty;
-    private Dictionary<string, HashSet<string>> _scopes = new();
+    private Dictionary<string, HashSet<Variable>> _scopes = new();
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;
-    public FunctionAssignationParser(TokenStream stream, Dictionary<string, HashSet<string>> scopes, string Name)
+    public FunctionAssignationParser(TokenStream stream, Dictionary<string, HashSet<Variable>> scopes, string Name)
     {
         _streamer = stream;
         _scopes = scopes;
@@ -23,7 +23,7 @@ public class FunctionAssignationParser : IParseDeclarations {
         ParseDeclarations();
         _logger.LogInformation("Function assignations parsed");
     }
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     public void ParseDeclarations(){

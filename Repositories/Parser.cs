@@ -1,11 +1,13 @@
 using static Parser.Models.Constants.TYPE;
 using Microsoft.Extensions.Logging;
+using Parser.Models;
 namespace Parser.Repositories;
 public class Parser{
     private TokenStream _streamer;
     private readonly ILogger<Parser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<Parser>();
     private Dictionary<string, List<string>> _ports = new(), _archDeclarations = new(), 
     _generics = new(), _packages = new();
+    public Dictionary<string, HashSet<Variable>> Scopes { get; private set; } = new();
     private List<string> _entities = new(), _architectures = new();
     private Tokenizer _tokenizer;
     private DateTime _start = DateTime.Now, _end;
@@ -16,6 +18,7 @@ public class Parser{
         if(temp.Count <= 0) throw new Exception("Tokenizer must be initialized");
         _streamer = new(tokenizer.GetDictionaryType());
     }
+    public Dictionary<string, HashSet<Variable>> GetScopes() => Scopes;
     public Parser(string FilePath){
         _tokenizer = new(FilePath);
         _streamer = new(_tokenizer.GetDictionaryType());
@@ -27,10 +30,10 @@ public class Parser{
             ParseLibrariesUsage();
         else
             _logger.LogWarning("Libraries not detected");
-        Dictionary<string, HashSet<string>> entities = new();
-        EntityParser entityParser = new(_streamer, entities);
-        ArchitectureParser architectureParser = new(_streamer, entities);
-        PackageParser packageParser = new(_streamer, entities);
+        
+        EntityParser entityParser = new(_streamer, Scopes);
+        ArchitectureParser architectureParser = new(_streamer, Scopes);
+        PackageParser packageParser = new(_streamer, Scopes);
         while(!_streamer.EndStream())
             switch(_streamer.Current?.Value.ToLower()){
                 case "entity":

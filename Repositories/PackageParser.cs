@@ -7,16 +7,16 @@ namespace Parser.Repositories;
 public class PackageParser : IParseStructures{
     private TokenStream _streamer;
     private readonly ILogger<ArchitectureParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureParser>();
-    private Dictionary<string, HashSet<string>> _scopes = new();
+    private Dictionary<string, HashSet<Variable>> _scopes = new();
     private string _name = string.Empty, _entityName = string.Empty;
     private FunctionParser _functionParser = default!;
     private GenericParser _genericParser = default!;
-    public PackageParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes){
+    public PackageParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes){
         _scopes = scopes;
         _streamer = streamer;
     }
     public string GetName() => _name;
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
     public bool ExistsVariable(string variable)
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     public void ParseDeclaration(){

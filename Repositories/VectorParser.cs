@@ -8,10 +8,11 @@ namespace Parser.Repositories;
 public class VectorParser : IParseVectorStructure {
     private readonly TokenStream _streamer;
     private readonly ILogger<VectorParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<VectorParser>();
-    private Dictionary<string, HashSet<string>> _scopes;
+    private Dictionary<string, HashSet<Variable>> _scopes;
+    public int VectorSize { get; private set; }
     private string _name;
     public bool Parsed { get; private set; } = false;
-    public VectorParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes, string name)
+    public VectorParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes, string name)
     {
         _streamer = streamer;
         _scopes = scopes;
@@ -62,8 +63,9 @@ public class VectorParser : IParseVectorStructure {
                     throw new ParserException(MISSING_DECLARATION);
                 else
                     _streamer.Expect(IDENTIFIERS);
-            else if(_streamer.Current?.Type == LITERALS)
+            else if(_streamer.Current?.Type == LITERALS){
                 _streamer.Expect(LITERALS);
+            }
             if(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";")
                 _streamer.Expect(OPERATORS);
             else if(_streamer.Current?.Type == KEYWORDS && _streamer.Current.Value.ToString() != "downto")
@@ -89,7 +91,7 @@ public class VectorParser : IParseVectorStructure {
     }
     protected bool CheckVariable(Token? current) 
         => current?.Type == IDENTIFIERS && ExistsVariable(current.Value);
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
 }

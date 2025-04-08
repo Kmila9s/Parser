@@ -7,10 +7,10 @@ namespace Parser.Repositories;
 public class DataStructuresParser : IParseStructures {
     private TokenStream _streamer;
     private readonly ILogger<DataStructuresParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<DataStructuresParser>();
-    private Dictionary<string, HashSet<string>> _scopes = new();
-    private string _name = string.Empty, _entityName = string.Empty;
+    private Dictionary<string, HashSet<Variable>> _scopes = new();
+    private string _name = string.Empty, _entityName = string.Empty, _implicitReturnVariable;
     private bool _isFunction = false, _implicitDeclaration = false;
-    public DataStructuresParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes, string name, string EntityName, bool IsFunction = false)
+    public DataStructuresParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes, string name, string EntityName, bool IsFunction = false)
     {
         _streamer = streamer;
         _scopes = scopes;
@@ -19,7 +19,7 @@ public class DataStructuresParser : IParseStructures {
         _isFunction = IsFunction;
     }
     public string GetName() => _name;
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable) || 
             _scopes.ContainsKey(_entityName) && _scopes[_entityName].Contains(variable);
@@ -41,18 +41,93 @@ public class DataStructuresParser : IParseStructures {
                 ParseBodyDeclaration();
             break;
             case "for":
+                ParseForStructure();
+                ParseBodyDeclaration();
+            break;
             case "while":
             case "exit":
             case "wait":
-            case "return":
             case "null":
                 throw new NotImplementedException();
+            case "return":
+                if(!_isFunction){
+                    throw new ParserException(SYNTAX_ERROR);
+                }else{
+                    if(String.IsNullOrEmpty(_implicitReturnVariable) || ExistsVariable(_implicitReturnVariable))
+                        throw new ParserException(MISSING_DECLARATION);
+                    _streamer.MoveNext();
+                    _streamer.Expect(IDENTIFIERS);
+                    _streamer.Expect(OPERATORS); // ;
+                }
+            break;
             default:
                 if(_streamer.Current?.Type == IDENTIFIERS){
                     ParseAsignations();
                     ParseBodyDeclaration();
                 }
             break;
+        }
+    }
+    public void ParseForStructure(){
+        _streamer.Expect(KEYWORDS); // FOR
+        string variable = _streamer.Current?.Value ?? string.Empty;
+        if(ExistsVariable(variable))
+            throw new ParserException(DUPLICATE_DECLARATION);
+        _scopes[_name].Add(variable);
+        _streamer.Expect(IDENTIFIERS); // ITERATOR
+        _streamer.Expect(KEYWORDS);
+        ParseForDeclaration();
+        _streamer.Expect(KEYWORDS); // loop
+        ParseBodyDeclaration();
+        _streamer.Expect(KEYWORDS); // end;
+        _streamer.Expect(KEYWORDS); // loop
+    }
+    public void ParseForDeclaration(){
+        while(_streamer.Current?.Value != "loop" || _streamer.Current?.Type != PARENTHESIS){
+            if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
+                ParseParenthesis();
+                if((_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";") || _streamer.Current?.Type == KEYWORDS){
+                    _streamer.MoveNext();
+                    ParseOperation();
+                }
+            }
+            if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "not")
+                _streamer.MoveNext();
+            if(_streamer.Current?.Type == VECTORS_ATTRIBUTES){
+                VectorParser parser = new(_streamer, _scopes, _name);
+                parser.ParseAttributes();
+            }
+            else if(_streamer.Current?.Type == IDENTIFIERS)
+                if(!ExistsVariable(_streamer.Current.Value))
+                    if(_isFunction && !_implicitDeclaration){
+                        _implicitDeclaration = true;
+                        string variable = _streamer.Current?.Value ?? string.Empty;
+                        _streamer.Expect(IDENTIFIERS);
+                        _implicitReturnVariable = variable;
+                        _scopes[_name].Add(variable);
+                    }
+                    else
+                        throw new ParserException(MISSING_DECLARATION);
+                else
+                    _streamer.Expect(IDENTIFIERS);
+            else if(_streamer.Current?.Type == LITERALS)
+                _streamer.Expect(LITERALS);
+            if(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";")
+                _streamer.Expect(OPERATORS);
+            else if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() != "loop")
+                if(_streamer.Current?.Value.ToLower() == "after"){
+                    _streamer.MoveNext();
+                    if(_streamer.Current?.Type == LITERALS || (_streamer.Current?.Type == IDENTIFIERS && ExistsVariable(_streamer.Current.Value)))
+                        _streamer.MoveNext();
+                    else
+                        throw new ParserException(SYNTAX_ERROR);
+                    _streamer.Expect(TIME_VARIABLES);
+                }else
+                    _streamer.Expect(KEYWORDS); // CASES LIKE XOR, AND, OR
+            else if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "(")
+                continue;
+            else
+                break;
         }
     }
     public void ParseProcess(){
@@ -106,6 +181,7 @@ public class DataStructuresParser : IParseStructures {
                 _streamer.MoveNext();
                 ParseConditionalOperation();
             }else if(type == PARENTHESIS && val.Equals(")")){
+                // NEEDS TO CORRECT THIS ONLY THROGHT PASS THE METHODS                
                 _streamer.MoveNext();
                 break;
             }
@@ -135,14 +211,30 @@ public class DataStructuresParser : IParseStructures {
                     }
                 break;
                 case IDENTIFIERS:
+                    if(!ExistsVariable(_streamer.Current?.Value ?? string.Empty))
+                        throw new ParserException(MISSING_DECLARATION);
                     _streamer.Expect(IDENTIFIERS);
                     if(_streamer.Current?.Type == SEPARATORS &&
                     _streamer.Current?.Value == "=>" || _streamer.Current?.Type == OPERATORS)
                         _streamer.MoveNext();
+                    else if(_streamer.Current?.Type == PARENTHESIS)
+                        ParseConditionalOperation();
                     else
                         throw new ParserException(SYNTAX_ERROR);
                     ParseConditionalOperation();
                 break;
+                case OPERATORS:
+                    if(!Constants.IF_OPERATORS.Contains(_streamer.Current?.Value ?? string.Empty))
+                        throw new ParserException(SYNTAX_ERROR);
+                    _streamer.Expect(OPERATORS);
+                break;
+                case LITERALS:
+                    _streamer.Expect(LITERALS);
+                break;
+                default:
+                    if(_streamer.Current?.Value.ToLower() != "then")
+                        throw new NotImplementedException();
+                    break;
             } 
         }
     }
@@ -176,13 +268,16 @@ public class DataStructuresParser : IParseStructures {
             string varName = _streamer.Current.Value;
             if(!ExistsVariable(varName))
                 if(_isFunction && !_implicitDeclaration){
+                    // Implicit variable return
                     _implicitDeclaration = true;
                     string variable = _streamer.Current?.Value ?? string.Empty;
                     _scopes[_name].Add(variable);
+                    _implicitReturnVariable = variable;
                 }else
                     throw new ParserException(MISSING_DECLARATION);
             _streamer.Expect(IDENTIFIERS);
             _streamer.Expect(OPERATORS);
+
             ParseOperation();
             _streamer.Expect(OPERATORS); // ; CASE 
         }
@@ -205,6 +300,7 @@ public class DataStructuresParser : IParseStructures {
                         _implicitDeclaration = true;
                         string variable = _streamer.Current?.Value ?? string.Empty;
                         _streamer.Expect(IDENTIFIERS);
+                        _implicitReturnVariable = variable;
                         _scopes[_name].Add(variable);
                     }
                     else

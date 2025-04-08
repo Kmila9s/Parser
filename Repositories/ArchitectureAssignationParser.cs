@@ -8,11 +8,11 @@ namespace Parser.Repositories;
 public class ArchitectureAssignationParser : IParseDeclarations{
     private TokenStream _streamer;
     private readonly ILogger<ArchitectureAssignationParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureAssignationParser>();
-    private Dictionary<string, HashSet<string>> _scopes = new();
+    private Dictionary<string, HashSet<Variable>> _scopes = new();
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;
     private string _name = string.Empty, _entityName = string.Empty;
-    public ArchitectureAssignationParser(TokenStream stream, Dictionary<string, HashSet<string>> scopes, string Name, string EntityName = "")
+    public ArchitectureAssignationParser(TokenStream stream, Dictionary<string, HashSet<Variable>> scopes, string Name, string EntityName = "")
     {
         _streamer = stream;
         _name = Name;
@@ -24,7 +24,7 @@ public class ArchitectureAssignationParser : IParseDeclarations{
         ParseDeclarations();
         _logger.LogInformation("Architecture assignations parsed");
     }
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     public void ParseDeclarations(){

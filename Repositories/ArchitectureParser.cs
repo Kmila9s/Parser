@@ -8,17 +8,17 @@ namespace Parser.Repositories;
 public class ArchitectureParser : IParseStructures {
     private TokenStream _streamer;
     private readonly ILogger<ArchitectureParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureParser>();
-    private Dictionary<string, HashSet<string>> _scopes = new();
+    private Dictionary<string, HashSet<Variable>> _scopes = new();
     private ArchitectureAssignationParser _archAssignations = default!;
     private DataStructuresParser _dataStructureParser = default!;
     private string _name = string.Empty, _entityName = string.Empty;
-    public ArchitectureParser(TokenStream streamer, Dictionary<string, HashSet<string>> scopes)
+    public ArchitectureParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes)
     {
         _streamer = streamer;
         _scopes = scopes;
     }
     public string GetName() => _name;
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     public void ParseDeclaration(){
