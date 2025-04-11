@@ -11,6 +11,8 @@ public class EntityParser : IParseStructures {
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private GenericParser _genericParser = default!;
     private PortsParser _portsParser = default!;
+    public Entity Entity { get; private set; }= default!;
+    private Architecture Architecture = default!;
     private string _name = string.Empty;
     public EntityParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes){
         _streamer = streamer;
@@ -28,6 +30,8 @@ public class EntityParser : IParseStructures {
     public void ParseDeclaration(){
         _streamer.Expect(KEYWORDS);
         _name = _streamer.Current?.Value ?? string.Empty;
+        Entity.Name = _name;
+        Entity.Ports = new();
         if(_scopes.ContainsKey(_name))
             throw new ParserException(DUPLICATE_STRUCTURE);
         _scopes.Add(_name, new());
@@ -40,6 +44,8 @@ public class EntityParser : IParseStructures {
         if(_streamer.Current?.Value.ToLower() == "port"){
             _portsParser = new(_streamer, _scopes, _name);
             _portsParser.Parse();
+            var ports = _portsParser.GetScopes();
+            Entity.Ports = new(ports[_name].ToList());
         }
         _streamer.Expect(KEYWORDS);
         string ClosureName = _streamer.Current?.Value ?? string.Empty;

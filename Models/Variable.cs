@@ -8,35 +8,52 @@ public class Variable {
         _dataType = value;
         switch(value){
             case DATATYPES.STD_LOGIC:
-                Value = "U";
+                if(Value == null)
+                    Value = "U";
             break;
             case DATATYPES.STD_LOGIC_VECTOR:
-                Value = "U";
+                if(Value == null)
+                    Value = "U";
             break;
             default:
                 Value = "-";
             break;
         }
     } }
-    public int Size { get; set; } = 0;
+    private int _size = 0;
+    public int Size { get => _size; set{
+        _size = value;
+        if(this._dataType == DATATYPES.STD_LOGIC_VECTOR){
+            var arr = "";
+            for(int i = 0; i < _size;i++)
+                arr += "U";
+            Value = arr;
+        }
+    } }
     public object Value { get; set; } = new();
     public Variable(string Name){ this.Name = Name;}
     public Variable(){ this.Name = string.Empty;}
+    public Variable(string Name, object Value, DATATYPES Type, int Size = 0){
+        this.Name = Name;
+        this.Value = Value;
+        this.Type = Type;
+        this.Size = Size;
+    }
     public static implicit operator Variable(string Name) => new(Name);
     public override bool Equals(object? obj)
     {
         if(obj is Variable var)
-            return var.Name == this.Name;
+            return var.Name.ToLower() == this.Name.ToLower();
         if(obj is string varName)
-            return varName == this.Name;
+            return varName.ToLower() == this.Name.ToLower();
         return false;
     }
     public override int GetHashCode()
     {
         return this.Name?.GetHashCode() ?? 0;
     }
-    public static bool operator ==(string p, Variable var) => p == var.Name;
-    public static bool operator ==(Variable var, string p) => p == var.Name;
-    public static bool operator !=(string p, Variable var) => !(p == var.Name);
-    public static bool operator !=(Variable var, string p) => !(p == var.Name);
+    public static bool operator ==(string p, Variable var) => p.ToLower() == var.Name.ToLower();
+    public static bool operator ==(Variable var, string p) => p.ToLower() == var.Name.ToLower();
+    public static bool operator !=(string p, Variable var) => !(p.ToLower() == var.Name.ToLower());
+    public static bool operator !=(Variable var, string p) => !(p.ToLower() == var.Name.ToLower());
 }

@@ -31,7 +31,8 @@ public class Tokenizer{
         _timeRegex = new(Constants.TIME_VARIABLES, RegexOptions.IgnoreCase);
         _vectorAttributes = new(Constants.VECTORS_ATTRIBUTES, optionsCompiled);
         _filePath = FilePath;
-        ReadFile(FilePath);
+        if(!String.IsNullOrEmpty(_filePath))
+            ReadFile(FilePath);
     }
     public void ReadFile(string FilePath){
         using StreamReader reader = new(FilePath);
@@ -54,6 +55,12 @@ public class Tokenizer{
         var preTokens = TokenizeSpaces(line);
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token));
         _tokens.AddRange(tokens);
+    }
+    public string[] TokenizeLineReturn(string line){
+        List<string> tokens = new();
+        var preTokens = TokenizeSpaces(line);
+        foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token));
+        return tokens.ToArray();
     }
     private List<string> TokenizeSpaces(string line){
         try{

@@ -32,7 +32,7 @@ public class Parser{
             _logger.LogWarning("Libraries not detected");
         
         EntityParser entityParser = new(_streamer, Scopes);
-        ArchitectureParser architectureParser = new(_streamer, Scopes);
+        ArchitectureParser architectureParser = new(_streamer, Scopes, entityParser.Entity);
         PackageParser packageParser = new(_streamer, Scopes);
         while(!_streamer.EndStream())
             switch(_streamer.Current?.Value.ToLower()){
