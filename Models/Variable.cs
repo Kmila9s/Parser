@@ -20,6 +20,8 @@ public class Variable {
             break;
         }
     } }
+    public override string ToString() => 
+        Convert.ToString(this.Value ?? string.Empty) ?? string.Empty;
     private int _size = 0;
     public int Size { get => _size; set{
         _size = value;

@@ -11,13 +11,11 @@ public class ArchitectureParser : IParseStructures {
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private ArchitectureAssignationParser _archAssignations = default!;
     private DataStructuresParser _dataStructureParser = default!;
-    public Architecture Architecture { get; private set; } = default!;
     private string _name = string.Empty, _entityName = string.Empty;
-    public ArchitectureParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes, Entity Entity)
+    public ArchitectureParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes)
     {
         _streamer = streamer;
         _scopes = scopes;
-        Architecture = new(Entity);
     }
     public string GetName() => _name;
     public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
@@ -31,7 +29,6 @@ public class ArchitectureParser : IParseStructures {
             _name = _streamer.Current.Value;
             _scopes.Add(_name, new());
         }
-        Architecture.SetName(_name);
         _streamer.Expect(IDENTIFIERS);
         _streamer.Expect(KEYWORDS);
         string EntityName = _streamer.Current?.Value ?? string.Empty;
