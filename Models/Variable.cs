@@ -20,6 +20,26 @@ public class Variable {
             break;
         }
     } }
+    public static DATATYPES GetDatatype(string type) =>
+        type.ToLower().Equals("std_logic") ?
+            DATATYPES.STD_LOGIC :
+        type.ToLower().Equals("std_logic_vector") ?
+            DATATYPES.STD_LOGIC_VECTOR :
+        type.ToLower().Equals("natural") ?
+            DATATYPES.NATURAL :
+        type.ToLower().Equals("integer") ?
+            DATATYPES.INTEGER :
+        type.ToLower().Equals("bit") ?
+            DATATYPES.BIT :
+        type.ToLower().Equals("boolean") ?
+            DATATYPES.BOOLEAN :
+        type.ToLower().Equals("hex") ?
+            DATATYPES.HEX :
+        type.ToLower().Equals("range") ?
+            DATATYPES.RANGE :
+        type.ToLower().Equals("character") ?
+            DATATYPES.CHARACTER :
+            DATATYPES.UNKNOWN ;
     public override string ToString() => 
         Convert.ToString(this.Value ?? string.Empty) ?? string.Empty;
     private int _size = 0;
@@ -33,8 +53,8 @@ public class Variable {
         }
     } }
     public object Value { get; set; } = new();
-    public bool IsPort { get; private set; } = false;
-    public PortType PortType { get; private set; } = PortType.IN;
+    public bool IsPort { get; set; } = false;
+    public PortType PortType { get; set; } = PortType.IN;
     public Variable(string Name){ this.Name = Name;}
     public Variable(){ this.Name = string.Empty;}
     public Variable(string Name, object Value, DATATYPES Type, int Size = 0){
