@@ -33,6 +33,8 @@ public class Variable {
         }
     } }
     public object Value { get; set; } = new();
+    public bool IsPort { get; private set; } = false;
+    public PortType PortType { get; private set; } = PortType.IN;
     public Variable(string Name){ this.Name = Name;}
     public Variable(){ this.Name = string.Empty;}
     public Variable(string Name, object Value, DATATYPES Type, int Size = 0){

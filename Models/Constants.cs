@@ -40,6 +40,10 @@ public class Constants{
         ARITH_OPERATION,
         UNKNOWN
     }
+    public enum PortType : int {
+        IN,
+        OUT
+    }
     public static DATATYPES GetDatatype(string value){
         value = value.ToLower();
         switch(value){
@@ -93,6 +97,6 @@ public class Constants{
     TIME_VARIABLES = @"^(fs|ps|ns|us|ms|sec|min|hr)$",
     VECTORS_ATTRIBUTES = @"^[_a-zA-Z][_a-zA-Z0-9]*\'(last_value|last_event|last_active|event|stable|quiet|active|transaction|driving|driving_value|delayed|now|path_name|instance_name|base|high|low|left|right|length|range|reverse_range|ascending)",
     ASSIGNATION_OPERATORS = @"^[(\<\=)|\:\=]",
-    LOGIC_OPERATORS = "(and|or|xor|nand|nor)",
+    LOGIC_OPERATORS = "(and|or|xor|nand|nor|not)",
     ARITH_OPERATORS = @"(\+|\-|\*|\/|mod)";
 }
