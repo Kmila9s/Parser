@@ -16,7 +16,7 @@ public class Variable {
                     Value = "U";
             break;
             default:
-                Value = "-";
+                Value = Value;
             break;
         }
     } }
