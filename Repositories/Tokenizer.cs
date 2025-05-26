@@ -34,13 +34,17 @@ public class Tokenizer{
         if(!String.IsNullOrEmpty(_filePath))
             ReadFile(FilePath);
     }
-    public void ReadFile(string FilePath){
+    public void ReadString(string RawData) => TokenizeLine(RawData);
+    public void ReadFile(string FilePath)
+    {
         using StreamReader reader = new(FilePath);
         var line = reader.ReadLine();
-        if(line != null){
+        if (line != null)
+        {
             var begin = DateTime.Now;
-            while(line != null){
-                TokenizeLine(line);
+            while (line != null)
+            {
+                TokenizeLine(line.Trim());
                 line = reader.ReadLine();
             }
             Evaluate();
@@ -52,8 +56,8 @@ public class Tokenizer{
     public List<Token> GetDictionaryType() => _typeDictionary;
     public void TokenizeLine(string line){
         List<string> tokens = new();
-        var preTokens = TokenizeSpaces(line);
-        foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token));
+        var preTokens = TokenizeSpaces(line.Trim());
+        foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.AddRange(tokens);
     }
     public string[] TokenizeLineReturn(string line){
@@ -124,26 +128,26 @@ public class Tokenizer{
     }
     public void Evaluate() => _typeDictionary = EvaluateTokens(_tokens);
     private Token EvaluateToken(string token){
-        token = token.ToLower();
-        if(_keywordsRegex.IsMatch(token))
+        var evtoken = token.ToLower();
+        if(_keywordsRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.KEYWORDS);
-        else if(_operatorsRegex.IsMatch(token))
+        else if(_operatorsRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.OPERATORS);
-        else if(_parenthesisRegex.IsMatch(token))
+        else if(_parenthesisRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.PARENTHESIS);
-        else if(_literalsRegex.IsMatch(token))
+        else if(_literalsRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.LITERALS);
-        else if(_qualifiedIdentifiersRegex.IsMatch(token))
+        else if(_qualifiedIdentifiersRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.QUALIFIED_IDENTIFIERS);
         else if(_timeRegex.IsMatch(token.ToLower()))
             return new(token, Constants.TYPE.TIME_VARIABLES);
-        else if(_identifiersRegex.IsMatch(token))
+        else if(_identifiersRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.IDENTIFIERS);
-        else if(_separatorsRegex.IsMatch(token))
+        else if(_separatorsRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.SEPARATORS);
-        else if(_functionsRegex.IsMatch(token))
+        else if(_functionsRegex.IsMatch(evtoken))
             return new(token, Constants.TYPE.METHODS);
-        else if(_vectorAttributes.IsMatch(token))
+        else if(_vectorAttributes.IsMatch(evtoken))
             return new(token, Constants.TYPE.VECTORS_ATTRIBUTES);
         else
             return new(token, Constants.TYPE.UNKNOWN);

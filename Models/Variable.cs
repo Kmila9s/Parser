@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using static Parser.Models.Constants;
 
 namespace Parser.Models;
@@ -45,22 +46,51 @@ public class Variable {
     private int _size = 0;
     public int Size { get => _size; set{
         _size = value;
-        if(this._dataType == DATATYPES.STD_LOGIC_VECTOR){
-            var arr = "";
-            for(int i = 0; i < _size;i++)
-                arr += "U";
-            Value = arr;
+        if (this._dataType == DATATYPES.STD_LOGIC_VECTOR)
+        {
+            string arr = new('U', _size);
+                if (_value == null)
+                    _value = arr;
+                else
+                {
+                    if (value != 0)
+                    {
+                        if (Convert.ToString(_value)?.Length != value)
+                            throw new IndexOutOfRangeException();    
+                    }
+                    _size = Convert.ToString(_value)?.Length ?? value;
+                }    
         }
     } }
-    public object Value { get; set; } = new();
+    private object? _value = null;
+    public object Value { get => _value ?? new(); set {
+        switch (_dataType)
+            {
+                case DATATYPES.STD_LOGIC:
+                    if (value == null)
+                        _value = "U";
+                    else
+                        _value = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
+                    break;
+                case DATATYPES.STD_LOGIC_VECTOR:
+                    if (value == null)
+                        _value = "U";
+                    else
+                        _value = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
+                    break;
+                default:
+                    _value = value;
+                    break;
+            }
+    } }
     public bool IsPort { get; set; } = false;
     public PortType PortType { get; set; } = PortType.IN;
     public Variable(string Name){ this.Name = Name;}
     public Variable(){ this.Name = string.Empty;}
     public Variable(string Name, object Value, DATATYPES Type, int Size = 0){
         this.Name = Name;
-        this.Value = Value;
         this.Type = Type;
+        this.Value = Value;
         this.Size = Size;
     }
     public static implicit operator Variable(string Name) => new(Name);
