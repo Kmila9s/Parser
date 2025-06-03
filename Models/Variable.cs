@@ -24,6 +24,10 @@ public class Variable {
     public static DATATYPES GetDatatype(string type) =>
         type.ToLower().Equals("std_logic") ?
             DATATYPES.STD_LOGIC :
+        type.ToLower().Equals("signed") ?
+            DATATYPES.STD_LOGIC_VECTOR :
+        type.ToLower().Equals("unsigned") ?
+            DATATYPES.STD_LOGIC_VECTOR :
         type.ToLower().Equals("std_logic_vector") ?
             DATATYPES.STD_LOGIC_VECTOR :
         type.ToLower().Equals("natural") ?
@@ -42,47 +46,54 @@ public class Variable {
             DATATYPES.CHARACTER :
             DATATYPES.UNKNOWN ;
     public override string ToString() => 
-        Convert.ToString(this.Value ?? string.Empty) ?? string.Empty;
+        Convert.ToString(Value ?? string.Empty) ?? string.Empty;
     private int _size = 0;
     public int Size { get => _size; set{
         _size = value;
-        if (this._dataType == DATATYPES.STD_LOGIC_VECTOR)
+        if (_dataType == DATATYPES.STD_LOGIC_VECTOR)
         {
             string arr = new('U', _size);
-                if (_value == null)
-                    _value = arr;
+                if (Value == null)
+                    Value = arr;
                 else
                 {
                     if (value != 0)
                     {
-                        if (Convert.ToString(_value)?.Length != value)
+                        if (Convert.ToString(Value)?.Length != value)
                             throw new IndexOutOfRangeException();    
                     }
-                    _size = Convert.ToString(_value)?.Length ?? value;
+                    _size = Convert.ToString(Value)?.Length ?? value;
                 }    
         }
     } }
     private object? _value = null;
-    public object Value { get => _value ?? new(); set {
-        switch (_dataType)
+    public event Action<Variable>? OnValueChange;
+    public object Value
+    {
+        get => _value ?? new();
+        set
+        {
+            object transformed;
+            switch (_dataType)
             {
                 case DATATYPES.STD_LOGIC:
-                    if (value == null)
-                        _value = "U";
-                    else
-                        _value = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
-                    break;
                 case DATATYPES.STD_LOGIC_VECTOR:
                     if (value == null)
-                        _value = "U";
+                        transformed = "U";
                     else
-                        _value = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
+                        transformed = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
                     break;
                 default:
-                    _value = value;
+                    transformed = value;
                     break;
             }
-    } }
+            if (!Equals(_value, transformed))
+            {
+                _value = transformed;
+                OnValueChange?.Invoke(this);
+            }
+        }
+    }
     public bool IsPort { get; set; } = false;
     public PortType PortType { get; set; } = PortType.IN;
     public Variable(string Name){ this.Name = Name;}
