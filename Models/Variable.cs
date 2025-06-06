@@ -13,8 +13,10 @@ public class Variable {
                     Value = "U";
             break;
             case DATATYPES.STD_LOGIC_VECTOR:
-                if(Value == null)
-                    Value = "U";
+                if (_value == null)
+                {
+                    _value = "U";
+                }   
             break;
             default:
                 Value = Value;
@@ -57,12 +59,14 @@ public class Variable {
                     Value = arr;
                 else
                 {
+                    var val = Convert.ToString(Value) == "System.Object" ? "U" : Convert.ToString(Value);
                     if (value != 0)
                     {
-                        if (Convert.ToString(Value)?.Length != value)
-                            throw new IndexOutOfRangeException();    
+
+                        if (val?.Length != value && !IsPort && val != "U")
+                            throw new IndexOutOfRangeException();
                     }
-                    _size = Convert.ToString(Value)?.Length ?? value;
+                    _size = val?.Length ?? value;
                 }    
         }
     } }
