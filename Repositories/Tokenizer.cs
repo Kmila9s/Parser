@@ -8,11 +8,12 @@ public class Tokenizer{
     private object _lock = new();
     public string LastError { get; private set; }
     private string _filePath = string.Empty;
-    private List<string> _tokens;
+    private List<(List<string>, int)> _tokens;
     private List<Token> _typeDictionary;
     private readonly Regex _keywordsRegex, _operatorsRegex, _parenthesisRegex,
     _identifiersRegex, _literalsRegex, _qualifiedIdentifiersRegex, _separatorsRegex,
     _functionsRegex, _timeRegex, _vectorAttributes;
+    private int _currentLine = 0, _currentCol = 0;
     public Tokenizer(string FilePath)
     {
         LastError = "";
@@ -31,12 +32,17 @@ public class Tokenizer{
         _timeRegex = new(Constants.TIME_VARIABLES, RegexOptions.IgnoreCase);
         _vectorAttributes = new(Constants.VECTORS_ATTRIBUTES, optionsCompiled);
         _filePath = FilePath;
-        if(!String.IsNullOrEmpty(_filePath))
+        if (!String.IsNullOrEmpty(_filePath))
             ReadFile(FilePath);
     }
-    public void ReadString(string RawData) => TokenizeLine(RawData);
+    public void ReadString(string RawData)
+    {
+        _currentLine = 0;
+        TokenizeLine(RawData);
+    } 
     public void ReadFile(string FilePath)
     {
+        _currentLine = _currentCol = 0;
         using StreamReader reader = new(FilePath);
         var line = reader.ReadLine();
         if (line != null)
@@ -48,8 +54,6 @@ public class Tokenizer{
                 line = reader.ReadLine();
             }
             Evaluate();
-            var end = DateTime.Now;
-            var timeDelta = end - begin;
             //Console.WriteLine($"Total time: {timeDelta}");
         }
     }
@@ -58,7 +62,7 @@ public class Tokenizer{
         List<string> tokens = new();
         var preTokens = TokenizeSpaces(line.Trim());
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
-        _tokens.AddRange(tokens);
+        _tokens.Add((tokens, _currentLine ++));
     }
     public string[] TokenizeLineReturn(string line){
         List<string> tokens = new();
@@ -126,37 +130,47 @@ public class Tokenizer{
         }
         return new();
     }
-    public void Evaluate() => _typeDictionary = EvaluateTokens(_tokens);
+    public void Evaluate() => _typeDictionary = EvaluateTokens();
     private Token EvaluateToken(string token){
-        var evtoken = token.ToLower();
-        if(_keywordsRegex.IsMatch(evtoken))
+        var evaluationToken = token.ToLower();
+        if(_keywordsRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.KEYWORDS);
-        else if(_operatorsRegex.IsMatch(evtoken))
+        else if(_operatorsRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.OPERATORS);
-        else if(_parenthesisRegex.IsMatch(evtoken))
+        else if(_parenthesisRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.PARENTHESIS);
-        else if(_literalsRegex.IsMatch(evtoken))
+        else if(_literalsRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.LITERALS);
-        else if(_qualifiedIdentifiersRegex.IsMatch(evtoken))
+        else if(_qualifiedIdentifiersRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.QUALIFIED_IDENTIFIERS);
         else if(_timeRegex.IsMatch(token.ToLower()))
             return new(token, Constants.TYPE.TIME_VARIABLES);
-        else if(_identifiersRegex.IsMatch(evtoken))
+        else if(_identifiersRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.IDENTIFIERS);
-        else if(_separatorsRegex.IsMatch(evtoken))
+        else if(_separatorsRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.SEPARATORS);
-        else if(_functionsRegex.IsMatch(evtoken))
+        else if(_functionsRegex.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.METHODS);
-        else if(_vectorAttributes.IsMatch(evtoken))
+        else if(_vectorAttributes.IsMatch(evaluationToken))
             return new(token, Constants.TYPE.VECTORS_ATTRIBUTES);
         else
             return new(token, Constants.TYPE.UNKNOWN);
     }
-    private List<Token> EvaluateTokens(List<string> tokens){
+    private List<Token> EvaluateTokens(){
         List<Token> evaluation = new();
-        foreach(var token in tokens){
-            evaluation.Add(EvaluateToken(token));
-        }
+        _tokens.ForEach(item =>
+        {
+            var tokens = item.Item1;
+            var line = item.Item2;
+            int currentCol = 0;
+            tokens.ForEach(p =>
+            {
+                var token = EvaluateToken(p);
+                token.Line = line;
+                token.Col = currentCol++;
+                evaluation.Add(token);
+            });
+        });
         return evaluation;
     }
 }
