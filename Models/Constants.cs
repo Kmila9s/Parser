@@ -38,6 +38,7 @@ public class Constants{
         ASSIGNATION,
         LOGIC_OPERATION,
         ARITH_OPERATION,
+        COMPARATION,
         UNKNOWN
     }
     public enum PortType : int {
@@ -73,7 +74,7 @@ public class Constants{
         "=", "+", "-", "/", "*"
     };
 
-    public const string 
+    public const string
     KEYWORDS = @"^(entity|port|end|architecture|begin|in|is|out|std_logic|and|or|not|xor|of|use|library|process|when|case|downto|std_logic_vector|others|signal|generic|integer|package|body|for|loop|variable|function|rising_edge|return|if|else|elsif|then|map|boolean|integer|range|to|bit|bit_vector|after|natural|positive|real|string|time|signed|unsigned|character|boolean_vector|integer_vector|std_ulogic|std_ulogic_vector|access|file|record|constant|attribute|group|disconnect|falling_edge)$",
     VECTORS_IDENTIFIER = @".*\s[std_logic_vector|STD_LOGIC_VECTOR]\s?\(.+",
     IDENTIFIERS = @"^[_a-zA-Z][_a-zA-Z0-9]*$",
@@ -90,13 +91,14 @@ public class Constants{
     LITERALS = $"^({LITERAL_DECIMAL_OR_INTEGER}|{LITERAL_QUOTED_INTEGER}|{LITERAL_SINGLE_QUOTED_INTEGER}|{LITERAL_STD_LOGIC_CHAR}|{LITERAL_STD_LOGIC_VECTOR}|{LITERAL_HEX_STRING}|{LITERAL_BOOLEAN})$",
     SEPARATORS = "^(,)$",
     FUNCTIONS = @"^\,?[_a-zA-Z][_a-zA-Z0-9]*\(.+\)\,?$",
-    OPERATORS = @"^((\<\=)|\:|\;|(\=\>)|\+|\-|\:\=|\=|\*|\&|\'|\/|\<|\>|mod)$", 
+    OPERATORS = @"^((\<\=)|\:|\;|(\=\>)|\+|\-|\:\=|\=|\*|\&|\'|\/|\<|\>|mod)$",
     PARENTHESIS = @"^(\(|\))$",
     SPECIAL_METHODS = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+",
     SPECIAL_METHODS2 = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+\)",
     TIME_VARIABLES = @"^(fs|ps|ns|us|ms|sec|min|hr)$",
     VECTORS_ATTRIBUTES = @"^[_a-zA-Z][_a-zA-Z0-9]*\'(last_value|last_event|last_active|event|stable|quiet|active|transaction|driving|driving_value|delayed|now|path_name|instance_name|base|high|low|left|right|length|range|reverse_range|ascending)",
     ASSIGNATION_OPERATORS = @"^[(\<\=)|\:\=]",
+    COMPARATION_OPERATORS = @"^[=|<|>|!=]",
     LOGIC_OPERATORS = "(and|or|xor|nand|nor|not)",
     ARITH_OPERATORS = @"(\+|\-|\*|\/|mod)";
 }
