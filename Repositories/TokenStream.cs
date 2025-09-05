@@ -6,7 +6,7 @@ namespace Parser.Repositories;
 public class TokenStream
 {
     private readonly List<Token> _tokens = new();
-    private int _currentPosition = 0;
+    private int _currentPosition = 0, _rollBack = 0;
     private readonly ILogger<TokenStream> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<TokenStream>();
     public TokenStream(List<Token> Tokens)
     {
@@ -14,6 +14,8 @@ public class TokenStream
     }
     public Token? Current => (_currentPosition < _tokens.Count) ? _tokens[_currentPosition] : null;
     public void MoveNext() => _currentPosition++;
+    public void SetRollBack() => _rollBack = _currentPosition;
+    public void RollBack() => _currentPosition = _rollBack;
     public bool Match(Constants.TYPE ExpectedType)
     {
         if (Current != null && Current.Type == ExpectedType)
