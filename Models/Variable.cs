@@ -123,6 +123,8 @@ public class Variable {
     }
     public static bool operator ==(string p, Variable var) => p.ToLower() == var.Name.ToLower();
     public static bool operator ==(Variable var, string p) => p.ToLower() == var.Name.ToLower();
+    public static bool operator ==(Variable var, Variable comp) => var.Name == comp.Name;
+    public static bool operator !=(Variable var, Variable comp) => var.Name != comp.Name;    
     public static bool operator !=(string p, Variable var) => !(p.ToLower() == var.Name.ToLower());
     public static bool operator !=(Variable var, string p) => !(p.ToLower() == var.Name.ToLower());
 }
