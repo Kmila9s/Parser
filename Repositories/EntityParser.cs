@@ -29,11 +29,13 @@ public class EntityParser : IParseStructures {
     /// <summary>
     /// Starts the parsing of the entity block.
     /// </summary>
-    public void Parse(){
+    public void Parse()
+    {
         _logger.LogInformation("Parsing Entity");
         ParseDeclaration();
         _logger.LogInformation("Entity Parsed");
     }
+    
     /// <summary>
     /// Gets the name of the parsed entity.
     /// </summary>
