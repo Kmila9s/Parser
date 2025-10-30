@@ -20,7 +20,7 @@ public class Tokenizer{
     private readonly Regex _keywordsRegex, _operatorsRegex, _parenthesisRegex,
     _identifiersRegex, _literalsRegex, _qualifiedIdentifiersRegex, _separatorsRegex,
     _functionsRegex, _timeRegex, _vectorAttributes;
-    private int _currentLine = 0, _currentCol = 0;
+    private int _currentLine = 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Tokenizer"/> class.
@@ -62,7 +62,7 @@ public class Tokenizer{
     /// <param name="FilePath">The path to the VHDL file.</param>
     public void ReadFile(string FilePath)
     {
-        _currentLine = _currentCol = 0;
+        _currentLine = 0;
         using StreamReader reader = new(FilePath);
         var line = reader.ReadLine();
         if (line != null)

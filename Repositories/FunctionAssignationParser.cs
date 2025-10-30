@@ -13,8 +13,8 @@ public class FunctionAssignationParser : IParseDeclarations {
     private readonly ILogger<FunctionAssignationParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<FunctionAssignationParser>();
     private string _name = string.Empty, _entityName = string.Empty;
     private Dictionary<string, HashSet<Variable>> _scopes = new();
-    private VectorParser _vectorParser = default!;
-    private RangeParser _rangeParser = default!;
+    //private VectorParser _vectorParser = default!;
+    //private RangeParser _rangeParser = default!;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FunctionAssignationParser"/> class.
