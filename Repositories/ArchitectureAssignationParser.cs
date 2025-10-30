@@ -5,29 +5,55 @@ using static Parser.Models.Constants.TYPE;
 using static Parser.Models.Constants.ParseExceptions;
 
 namespace Parser.Repositories;
+
+/// <summary>
+/// A parser for declarations within a VHDL architecture header, such as signals and constants.
+/// </summary>
 public class ArchitectureAssignationParser : IParseDeclarations{
     private TokenStream _streamer;
     private readonly ILogger<ArchitectureAssignationParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureAssignationParser>();
-    private Dictionary<string, HashSet<string>> _scopes = new();
+    private Dictionary<string, HashSet<Variable>> _scopes = new();
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;
     private string _name = string.Empty, _entityName = string.Empty;
 
-    public ArchitectureAssignationParser(TokenStream stream, Dictionary<string, HashSet<string>> scopes, string Name, string EntityName = "")
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ArchitectureAssignationParser"/> class.
+    /// </summary>
+    /// <param name="stream">The token stream to process.</param>
+    /// <param name="scopes">The dictionary of scopes to populate.</param>
+    /// <param name="Name">The name of the architecture scope.</param>
+    /// <param name="EntityName">The name of the associated entity scope, used for variable lookups.</param>
+    public ArchitectureAssignationParser(TokenStream stream, Dictionary<string, HashSet<Variable>> scopes, string Name, string EntityName = "")
     {
         _streamer = stream;
         _name = Name;
         _scopes = scopes;
         _entityName = EntityName;
     }
-    public void Parse(){
+    /// <summary>
+    /// Starts the parsing of the architecture declarations.
+    /// </summary>
+    public virtual void Parse(){
         _logger.LogInformation("Parsing Architecture Assignatinos");
         ParseDeclarations();
         _logger.LogInformation("Architecture assignations parsed");
     }
-    public Dictionary<string, HashSet<string>> GetScopes() => _scopes;
+    /// <summary>
+    /// Gets the dictionary of scopes.
+    /// </summary>
+    /// <returns>The dictionary of scopes.</returns>
+    public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
+    /// <summary>
+    /// Checks if a variable exists within the current architecture's scope.
+    /// </summary>
+    /// <param name="variable">The name of the variable to check.</param>
+    /// <returns>True if the variable exists, otherwise false.</returns>
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
+    /// <summary>
+    /// Parses signal, constant, and other declarations in the architecture header.
+    /// </summary>
     public void ParseDeclarations(){
         while(_streamer.Current?.Type == KEYWORDS && 
             (
@@ -72,6 +98,9 @@ public class ArchitectureAssignationParser : IParseDeclarations{
             _streamer.Expect(OPERATORS); // ;
         }
     }
+    /// <summary>
+    /// Parses comma-separated identifiers in a declaration, adding each as a new variable to the current scope.
+    /// </summary>
     private void ParseWithComas(){
         while(_streamer.Current?.Type == IDENTIFIERS){
             if(!_scopes.ContainsKey(_name))
