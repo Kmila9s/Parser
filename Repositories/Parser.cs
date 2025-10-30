@@ -2,15 +2,31 @@ using static Parser.Models.Constants.TYPE;
 using Microsoft.Extensions.Logging;
 using Parser.Models;
 namespace Parser.Repositories;
+
+/// <summary>
+/// The main orchestrator for the VHDL parsing process.
+/// It initializes the token stream and delegates parsing of top-level VHDL structures.
+/// </summary>
 public class Parser{
     private TokenStream _streamer;
     private readonly ILogger<Parser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<Parser>();
+    // The fields below are part of an older parsing implementation and are superseded by the Scopes dictionary.
     private Dictionary<string, List<string>> _ports = new(), _archDeclarations = new(), 
     _generics = new(), _packages = new();
+    /// <summary>
+    /// Gets the collection of scopes, where each scope contains a set of declared variables, signals, ports, etc.
+    /// The key is the scope name (e.g., entity name, architecture name) and the value is the set of variables.
+    /// </summary>
     public Dictionary<string, HashSet<Variable>> Scopes { get; private set; } = new();
     private List<string> _entities = new(), _architectures = new();
     private Tokenizer _tokenizer;
     private DateTime _start = DateTime.Now, _end;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Parser"/> class with a pre-configured tokenizer.
+    /// </summary>
+    /// <param name="tokenizer">An initialized <see cref="Tokenizer"/> instance containing the tokens.</param>
+    /// <exception cref="Exception">Thrown if the tokenizer has not produced any tokens.</exception>
     public Parser(Tokenizer tokenizer)
     {
         _tokenizer = tokenizer;
@@ -18,11 +34,24 @@ public class Parser{
         if(temp.Count <= 0) throw new Exception("Tokenizer must be initialized");
         _streamer = new(tokenizer.GetDictionaryType());
     }
+    /// <summary>
+    /// Gets the scopes dictionary.
+    /// </summary>
+    /// <returns>The dictionary of scopes.</returns>
     public Dictionary<string, HashSet<Variable>> GetScopes() => Scopes;
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Parser"/> class by creating a tokenizer for the specified file path.
+    /// </summary>
+    /// <param name="FilePath">The path to the VHDL file to parse.</param>
     public Parser(string FilePath){
         _tokenizer = new(FilePath);
         _streamer = new(_tokenizer.GetDictionaryType());
     }
+    /// <summary>
+    /// Starts the parsing process using a structured, object-oriented approach.
+    /// It iterates through the token stream and delegates parsing to specialized parser classes.
+    /// </summary>
+    /// <exception cref="NotImplementedException">Thrown for unrecognized top-level VHDL keywords.</exception>
     public void ParseV2(){
         Console.WriteLine("");
         _logger.LogInformation("Starting parsing");
@@ -53,6 +82,10 @@ public class Parser{
         _end = DateTime.Now;
         _logger.LogInformation($"Total time: {(_end - _start).TotalMilliseconds} ms");
     }
+    /// <summary>
+    /// An older, more monolithic implementation of the parsing logic.
+    /// This method is retained for legacy purposes and is less structured than <see cref="ParseV2"/>.
+    /// </summary>
     public void Parse(){
         Console.WriteLine("");
         _logger.LogInformation("Starting parsing");

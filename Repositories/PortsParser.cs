@@ -6,6 +6,10 @@ using System.Numerics;
 using Parser.Models;
 
 namespace Parser.Repositories;
+
+/// <summary>
+/// A parser for VHDL 'port' blocks. It handles the declaration of input and output ports for an entity.
+/// </summary>
 public class PortsParser : IParseDeclarations {
     private TokenStream _streamer;
     private readonly ILogger<PortsParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PortsParser>();
@@ -13,12 +17,22 @@ public class PortsParser : IParseDeclarations {
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;
     private string _name = string.Empty;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PortsParser"/> class.
+    /// </summary>
+    /// <param name="stream">The token stream to process.</param>
+    /// <param name="scopes">The dictionary of scopes to populate.</param>
+    /// <param name="Name">The name of the scope (e.g., entity name) where the ports belong.</param>
     public PortsParser(TokenStream stream, Dictionary<string, HashSet<Variable>> scopes, string Name)
     {
         _streamer = stream;
         _name = Name;
         _scopes = scopes;
     }
+    /// <summary>
+    /// Starts the parsing of the entire port block.
+    /// </summary>
     public void Parse(){
         _logger.LogInformation("Parsing Port Declaration");
         _streamer.Expect(KEYWORDS);
@@ -32,6 +46,9 @@ public class PortsParser : IParseDeclarations {
         _streamer.Expect(OPERATORS);
         _logger.LogInformation("Port Declaration Parsed");
     }
+    /// <summary>
+    /// Parses individual port declarations within the port block.
+    /// </summary>
     public void ParseDeclarations(){
         List<Variable> variables = new();
         while(_streamer.Current?.Type == IDENTIFIERS){
@@ -81,7 +98,16 @@ public class PortsParser : IParseDeclarations {
         }
     }
 
+    /// <summary>
+    /// Checks if a variable exists within the current port's scope.
+    /// </summary>
+    /// <param name="variable">The name of the variable to check.</param>
+    /// <returns>True if the variable exists, otherwise false.</returns>
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
+    /// <summary>
+    /// Gets the dictionary of scopes.
+    /// </summary>
+    /// <returns>The dictionary of scopes.</returns>
     public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
 }

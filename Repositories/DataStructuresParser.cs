@@ -4,12 +4,26 @@ using static Parser.Models.Constants.TYPE;
 using static Parser.Models.Constants.ParseExceptions;
 using Parser.Models;
 namespace Parser.Repositories;
+
+/// <summary>
+/// A parser for sequential VHDL statements like if-then-else, case, for-loop, and signal assignments.
+/// It operates within the context of a process, function, or architecture body.
+/// </summary>
 public class DataStructuresParser : IParseStructures {
     private TokenStream _streamer;
     private readonly ILogger<DataStructuresParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<DataStructuresParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
-    private string _name = string.Empty, _entityName = string.Empty, _implicitReturnVariable;
+    private string _name = string.Empty, _entityName = string.Empty, _implicitReturnVariable = string.Empty;
     private bool _isFunction = false, _implicitDeclaration = false;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataStructuresParser"/> class.
+    /// </summary>
+    /// <param name="streamer">The token stream to process.</param>
+    /// <param name="scopes">The dictionary of scopes to populate.</param>
+    /// <param name="name">The name of the current scope (e.g., process or function name).</param>
+    /// <param name="EntityName">The name of the parent entity scope for variable lookups.</param>
+    /// <param name="IsFunction">A flag indicating if the parser is operating within a function body.</param>
     public DataStructuresParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes, string name, string EntityName, bool IsFunction = false)
     {
         _streamer = streamer;
@@ -18,18 +32,36 @@ public class DataStructuresParser : IParseStructures {
         _entityName = EntityName;
         _isFunction = IsFunction;
     }
+    /// <summary>
+    /// Gets the name of the current scope.
+    /// </summary>
+    /// <returns>The name of the scope.</returns>
     public string GetName() => _name;
+    /// <summary>
+    /// Gets the dictionary of scopes.
+    /// </summary>
+    /// <returns>The dictionary of scopes.</returns>
     public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
+    /// <summary>
+    /// Checks if a variable exists within the current or parent entity scope.
+    /// </summary>
+    /// <param name="variable">The name of the variable to check.</param>
+    /// <returns>True if the variable exists, otherwise false.</returns>
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable) || 
             _scopes.ContainsKey(_entityName) && _scopes[_entityName].Contains(variable);
     public void ParseDeclaration() => throw new NotImplementedException();
+    /// <summary>
+    /// Starts the parsing of sequential statements.
+    /// </summary>
     public void Parse(){
         _logger.LogInformation("Parsing data structure");
         ParseBodyDeclaration();
         _logger.LogInformation("Data structure parsed");
     }
-    
+    /// <summary>
+    /// Parses the body of a block, delegating to specific methods based on the statement type (if, case, etc.).
+    /// </summary>
     public void ParseBodyDeclaration(){
         switch(_streamer.Current?.Value.ToLower()){
             case "if":
@@ -68,6 +100,9 @@ public class DataStructuresParser : IParseStructures {
             break;
         }
     }
+    /// <summary>
+    /// Parses a 'for-loop' structure.
+    /// </summary>
     public void ParseForStructure(){
         _streamer.Expect(KEYWORDS); // FOR
         string variable = _streamer.Current?.Value ?? string.Empty;
@@ -82,6 +117,9 @@ public class DataStructuresParser : IParseStructures {
         _streamer.Expect(KEYWORDS); // end;
         _streamer.Expect(KEYWORDS); // loop
     }
+    /// <summary>
+    /// Parses the declaration part of a for-loop (e.g., 'i in 0 to 7').
+    /// </summary>
     public void ParseForDeclaration(){
         while(_streamer.Current?.Value != "loop" || _streamer.Current?.Type != PARENTHESIS){
             if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
@@ -130,6 +168,9 @@ public class DataStructuresParser : IParseStructures {
                 break;
         }
     }
+    /// <summary>
+    /// Parses a 'process' block, including its sensitivity list and body.
+    /// </summary>
     public void ParseProcess(){
         _logger.LogInformation("Parsing process");
         _streamer.Expect(KEYWORDS);
@@ -143,6 +184,9 @@ public class DataStructuresParser : IParseStructures {
         _streamer.Expect(OPERATORS); // ;
         _logger.LogInformation("Process parsed");
     }
+    /// <summary>
+    /// Parses the sensitivity list of a process.
+    /// </summary>
     private void ParseProcessVariables(){
         if(_streamer.Current?.Type == PARENTHESIS) return; // NOTHING INTO PARENTEHISIS FROM THE PROCESS
         while(_streamer.Current?.Type == IDENTIFIERS){
@@ -154,6 +198,9 @@ public class DataStructuresParser : IParseStructures {
                 
         }
     }
+    /// <summary>
+    /// Parses an 'if-then-elsif-else' structure.
+    /// </summary>
     private void ParseIfStructure(){
         _logger.LogInformation("Parsing If structure");
         _streamer.Expect(KEYWORDS);
@@ -173,6 +220,9 @@ public class DataStructuresParser : IParseStructures {
         _streamer.Expect(OPERATORS); // ;
         _logger.LogInformation("If structure parsed");
     }
+    /// <summary>
+    /// Parses the conditional expression of an 'if' or 'elsif' statement.
+    /// </summary>
     private void ParseConditionalOperation(){
         while(_streamer.Current?.Value != "then"){
             var type = _streamer.Current?.Type ?? Constants.TYPE.UNKNOWN;
@@ -238,6 +288,9 @@ public class DataStructuresParser : IParseStructures {
             } 
         }
     }
+    /// <summary>
+    /// Parses a 'case' statement structure.
+    /// </summary>
     private void ParseCaseStructure(){
         _logger.LogInformation("Parsing Case structure");
         _streamer.Expect(KEYWORDS);
@@ -251,6 +304,9 @@ public class DataStructuresParser : IParseStructures {
         _streamer.Expect(OPERATORS); // ;
         _logger.LogInformation("Case structure parsed");
     }
+    /// <summary>
+    /// Parses the 'when' clauses within a 'case' statement.
+    /// </summary>
     private void ParseCaseCases(){
         while(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "when"){
             _streamer.Expect(KEYWORDS);
@@ -262,6 +318,9 @@ public class DataStructuresParser : IParseStructures {
             ParseBodyDeclaration();
         }
     }
+    /// <summary>
+    /// Parses signal or variable assignment statements.
+    /// </summary>
     private void ParseAsignations(){
         _logger.LogInformation("Parsing Assignations");
         while(_streamer.Current?.Type == IDENTIFIERS){
@@ -283,6 +342,9 @@ public class DataStructuresParser : IParseStructures {
         }
         _logger.LogInformation("Assignations parsed");
     }
+    /// <summary>
+    /// Parses a complex expression on the right-hand side of an assignment.
+    /// </summary>
     private void ParseOperation(){
         while(_streamer.Current?.Value != ";" || _streamer.Current?.Type != PARENTHESIS){
             if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
@@ -327,6 +389,9 @@ public class DataStructuresParser : IParseStructures {
                 break;
         }
     }
+    /// <summary>
+    /// Parses expressions enclosed in parentheses.
+    /// </summary>
     private void ParseParenthesis(){
         _streamer.Expect(PARENTHESIS);
         ParseOperation();

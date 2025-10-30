@@ -2,9 +2,19 @@ using System.Collections.Specialized;
 using static Parser.Models.Constants;
 
 namespace Parser.Models;
+
+/// <summary>
+/// Represents a VHDL variable, signal, constant, or port.
+/// </summary>
 public class Variable {
+    /// <summary>
+    /// Gets or sets the name of the variable.
+    /// </summary>
     public string Name { get; set; } = string.Empty;
     private DATATYPES _dataType = DATATYPES.UNKNOWN;
+    /// <summary>
+    /// Gets or sets the data type of the variable.
+    /// </summary>
     public DATATYPES Type { get => _dataType; set{
         _dataType = value;
         switch(value){
@@ -23,6 +33,11 @@ public class Variable {
             break;
         }
     } }
+    /// <summary>
+    /// Converts a string representation of a data type to its corresponding DATATYPES enum value.
+    /// </summary>
+    /// <param name="type">The string value of the data type.</param>
+    /// <returns>The <see cref="DATATYPES"/> enum member.</returns>
     public static DATATYPES GetDatatype(string type) =>
         type.ToLower().Equals("std_logic") ?
             DATATYPES.STD_LOGIC :
@@ -50,6 +65,11 @@ public class Variable {
     public override string ToString() => 
         Convert.ToString(Value ?? string.Empty) ?? string.Empty;
     private int _size = 0;
+    /// <summary>
+    /// Gets or sets the size of the variable, typically for vector types.
+    /// Setting the size for a STD_LOGIC_VECTOR initializes its value.
+    /// </summary>
+    /// <exception cref="IndexOutOfRangeException">Thrown if the assigned value's length does not match the size for non-port vectors.</exception>
     public int Size { get => _size; set{
         _size = value;
         if (_dataType == DATATYPES.STD_LOGIC_VECTOR)
@@ -71,7 +91,13 @@ public class Variable {
         }
     } }
     private object? _value = null;
+    /// <summary>
+    /// Occurs when the value of the variable changes.
+    /// </summary>
     public event Action<Variable>? OnValueChange;
+    /// <summary>
+    /// Gets or sets the value of the variable.
+    /// </summary>
     public object Value
     {
         get => _value ?? new();
@@ -117,6 +143,10 @@ public class Variable {
             return varName.ToLower() == this.Name.ToLower();
         return false;
     }
+    /// <summary>
+    /// Serves as the default hash function.
+    /// </summary>
+    /// <returns>A hash code for the current object.</returns>
     public override int GetHashCode()
     {
         return this.Name?.GetHashCode() ?? 0;

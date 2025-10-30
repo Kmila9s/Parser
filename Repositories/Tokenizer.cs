@@ -4,8 +4,15 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace Parser.Repositories;
+
+/// <summary>
+/// Responsible for reading VHDL source code (from a file or string) and converting it into a sequence of tokens.
+/// </summary>
 public class Tokenizer{
     private object _lock = new();
+    /// <summary>
+    /// Gets the last error message that occurred during tokenization.
+    /// </summary>
     public string LastError { get; private set; }
     private string _filePath = string.Empty;
     private List<(List<string>, int)> _tokens;
@@ -14,6 +21,11 @@ public class Tokenizer{
     _identifiersRegex, _literalsRegex, _qualifiedIdentifiersRegex, _separatorsRegex,
     _functionsRegex, _timeRegex, _vectorAttributes;
     private int _currentLine = 0, _currentCol = 0;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Tokenizer"/> class.
+    /// </summary>
+    /// <param name="FilePath">The path to the VHDL file to be tokenized.</param>
     public Tokenizer(string FilePath)
     {
         LastError = "";
@@ -35,11 +47,19 @@ public class Tokenizer{
         if (!String.IsNullOrEmpty(_filePath))
             ReadFile(FilePath);
     }
+    /// <summary>
+    /// Tokenizes a single line of VHDL code provided as a string.
+    /// </summary>
+    /// <param name="RawData">The raw VHDL code string.</param>
     public void ReadString(string RawData)
     {
         _currentLine = 0;
         TokenizeLine(RawData);
     } 
+    /// <summary>
+    /// Reads and tokenizes an entire VHDL file.
+    /// </summary>
+    /// <param name="FilePath">The path to the VHDL file.</param>
     public void ReadFile(string FilePath)
     {
         _currentLine = _currentCol = 0;
@@ -57,19 +77,35 @@ public class Tokenizer{
             //Console.WriteLine($"Total time: {timeDelta}");
         }
     }
+    /// <summary>
+    /// Gets the list of classified tokens.
+    /// </summary>
+    /// <returns>A list of <see cref="Token"/> objects.</returns>
     public List<Token> GetDictionaryType() => _typeDictionary;
+    /// <summary>
+    /// Performs the tokenization for a single line of code.
+    /// </summary>
+    /// <param name="line">The line of code to tokenize.</param>
     public void TokenizeLine(string line){
         List<string> tokens = new();
         var preTokens = TokenizeSpaces(line.Trim());
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.Add((tokens, _currentLine ++));
     }
+    /// <summary>
+    /// Tokenizes a single line and returns the raw string tokens.
+    /// </summary>
+    /// <param name="line">The line of code to tokenize.</param>
+    /// <returns>An array of string tokens.</returns>
     public string[] TokenizeLineReturn(string line){
         List<string> tokens = new();
         var preTokens = TokenizeSpaces(line);
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token));
         return tokens.ToArray();
     }
+    /// <summary>
+    /// Splits a line by spaces and removes comments.
+    /// </summary>
     private List<string> TokenizeSpaces(string line){
         try{
             line = line.Trim();
@@ -87,6 +123,9 @@ public class Tokenizer{
         }
         return new();
     }
+    /// <summary>
+    /// Splits a token by special characters (e.g., ':=', ';', '(').
+    /// </summary>
     private List<string> TokenizeSpecialCharacters(string line){
         try{
             List<string> tokens = new(), separators = new(){ ":=", "<=", "=>"};
@@ -130,7 +169,15 @@ public class Tokenizer{
         }
         return new();
     }
+    /// <summary>
+    /// Evaluates all raw tokens and classifies them into <see cref="Token"/> objects.
+    /// </summary>
     public void Evaluate() => _typeDictionary = EvaluateTokens();
+    /// <summary>
+    /// Classifies a single raw string token into a <see cref="Token"/> object using regular expressions.
+    /// </summary>
+    /// <param name="token">The raw string token.</param>
+    /// <returns>A classified <see cref="Token"/>.</returns>
     private Token EvaluateToken(string token){
         var evaluationToken = token.ToLower();
         if(_keywordsRegex.IsMatch(evaluationToken))
@@ -156,6 +203,10 @@ public class Tokenizer{
         else
             return new(token, Constants.TYPE.UNKNOWN);
     }
+    /// <summary>
+    /// Iterates through all tokenized lines and evaluates each token.
+    /// </summary>
+    /// <returns>A complete list of classified <see cref="Token"/> objects for the entire source.</returns>
     private List<Token> EvaluateTokens(){
         List<Token> evaluation = new();
         _tokens.ForEach(item =>

@@ -1,5 +1,12 @@
 namespace Parser.Models;
+
+/// <summary>
+/// Provides constant values and enumerations used throughout the VHDL parser.
+/// </summary>
 public class Constants{
+    /// <summary>
+    /// Defines the types of tokens that can be identified by the Tokenizer.
+    /// </summary>
     public enum TYPE : ushort{
         KEYWORDS,
         IDENTIFIERS,
@@ -13,6 +20,9 @@ public class Constants{
         VECTORS_ATTRIBUTES,
         UNKNOWN
     }
+    /// <summary>
+    /// Defines custom exception types for parsing errors.
+    /// </summary>
     public enum ParseExceptions : int {
         UNKNOWN,
         INITIALIZATION,
@@ -22,6 +32,9 @@ public class Constants{
         MISSING_DECLARATION,
         SYNTAX_ERROR
     }
+    /// <summary>
+    /// Defines the supported VHDL data types.
+    /// </summary>
     public enum DATATYPES : int{
         STD_LOGIC,
         STD_LOGIC_VECTOR,
@@ -34,6 +47,9 @@ public class Constants{
         HEX,
         UNKNOWN,
     }
+    /// <summary>
+    /// Defines types of operators.
+    /// </summary>
     public enum OperatorType : int{
         ASSIGNATION,
         LOGIC_OPERATION,
@@ -41,10 +57,18 @@ public class Constants{
         COMPARATION,
         UNKNOWN
     }
+    /// <summary>
+    /// Defines the direction of a port (input or output).
+    /// </summary>
     public enum PortType : int {
         IN,
         OUT
     }
+    /// <summary>
+    /// Converts a string representation of a data type to its corresponding DATATYPES enum value.
+    /// </summary>
+    /// <param name="value">The string value of the data type.</param>
+    /// <returns>The <see cref="DATATYPES"/> enum member.</returns>
     public static DATATYPES GetDatatype(string value){
         value = value.ToLower();
         switch(value){
@@ -66,14 +90,23 @@ public class Constants{
                 return DATATYPES.UNKNOWN;
         }
     }
+    /// <summary>
+    /// A list of special characters used for tokenization.
+    /// </summary>
     public static List<string> SPECIALS_CHARACTERS = new(){
         "(", ")", "{", "}", "[", "]", ",", ";", "-", "+", "*", "/", "%", "#", "!", "@", "$", "^", "&",
         "=", ":", "<", ">", "?", "|"
     };
+    /// <summary>
+    /// A set of operators valid within an 'if' statement condition.
+    /// </summary>
     public static HashSet<string> IF_OPERATORS = new(){
         "=", "+", "-", "/", "*"
     };
 
+    /// <summary>
+    /// Regular expressions for identifying different VHDL token types.
+    /// </summary>
     public const string
     KEYWORDS = @"^(entity|port|end|architecture|begin|in|is|out|std_logic|and|or|not|xor|of|use|library|process|when|case|downto|std_logic_vector|others|signal|generic|integer|package|body|for|loop|variable|function|rising_edge|return|if|else|elsif|then|map|boolean|integer|range|to|bit|bit_vector|after|natural|positive|real|string|time|signed|unsigned|character|boolean_vector|integer_vector|std_ulogic|std_ulogic_vector|access|file|record|constant|attribute|group|disconnect|falling_edge)$",
     VECTORS_IDENTIFIER = @".*\s[std_logic_vector|STD_LOGIC_VECTOR]\s?\(.+",

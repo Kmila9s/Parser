@@ -5,6 +5,10 @@ using static Parser.Models.Constants.TYPE;
 using static Parser.Models.Constants.ParseExceptions;
 
 namespace Parser.Repositories;
+
+/// <summary>
+/// A parser for VHDL 'architecture' blocks. It handles the architecture declaration, header (signals, constants), and body (processes, concurrent statements).
+/// </summary>
 public class ArchitectureParser : IParseStructures {
     private TokenStream _streamer;
     private readonly ILogger<ArchitectureParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureParser>();
@@ -12,15 +16,37 @@ public class ArchitectureParser : IParseStructures {
     private ArchitectureAssignationParser _archAssignations = default!;
     private DataStructuresParser _dataStructureParser = default!;
     private string _name = string.Empty, _entityName = string.Empty;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ArchitectureParser"/> class.
+    /// </summary>
+    /// <param name="streamer">The token stream to process.</param>
+    /// <param name="scopes">The dictionary of scopes to populate.</param>
     public ArchitectureParser(TokenStream streamer, Dictionary<string, HashSet<Variable>> scopes)
     {
         _streamer = streamer;
         _scopes = scopes;
     }
+    /// <summary>
+    /// Gets the name of the parsed architecture.
+    /// </summary>
+    /// <returns>The architecture name.</returns>
     public string GetName() => _name;
+    /// <summary>
+    /// Gets the dictionary of scopes.
+    /// </summary>
+    /// <returns>The dictionary of scopes.</returns>
     public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
+    /// <summary>
+    /// Checks if a variable exists within the current architecture's scope.
+    /// </summary>
+    /// <param name="variable">The name of the variable to check.</param>
+    /// <returns>True if the variable exists, otherwise false.</returns>
     public bool ExistsVariable(string variable) 
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
+    /// <summary>
+    /// Parses the architecture's declaration part, including its name and associated entity.
+    /// </summary>
     public void ParseDeclaration(){
         _streamer.Expect(KEYWORDS);
         if(_streamer.Current?.Type == IDENTIFIERS){
@@ -40,10 +66,16 @@ public class ArchitectureParser : IParseStructures {
         ParseHeader();
         _streamer.Expect(KEYWORDS); // begin
     }
+    /// <summary>
+    /// Parses the header of the architecture, which contains declarations like signals, constants, etc.
+    /// </summary>
     public void ParseHeader(){
         if(_streamer.Current?.Type == KEYWORDS && _streamer.Current.Value.ToLower() == "begin") return;
         ParseBodyHeaderDeclaration();
     }
+    /// <summary>
+    /// Delegates parsing of different declaration types found in the architecture header.
+    /// </summary>
     public void ParseBodyHeaderDeclaration(){
         if(_streamer.Current?.Type == KEYWORDS){
             switch(_streamer.Current.Value){
@@ -73,6 +105,9 @@ public class ArchitectureParser : IParseStructures {
             }
         }
     }
+    /// <summary>
+    /// Parses 'alias' declarations within the architecture header.
+    /// </summary>
     private void ParseAliases(){
         while(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value == "alias"){
             _streamer.Expect(KEYWORDS);
@@ -86,6 +121,9 @@ public class ArchitectureParser : IParseStructures {
             _streamer.Expect(IDENTIFIERS);
         }
     }
+    /// <summary>
+    /// Parses the body of the architecture, which contains concurrent statements and processes.
+    /// </summary>
     public void ParseBodyDeclaration(){        
         while(_streamer.Current?.Value.ToLower() != "end")
             if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "process"){
@@ -96,6 +134,9 @@ public class ArchitectureParser : IParseStructures {
                 _dataStructureParser.Parse();
             }
     }
+    /// <summary>
+    /// Starts the parsing of the entire architecture block.
+    /// </summary>
     public void Parse(){
         _logger.LogInformation("Parsing Architecture");
         ParseDeclaration();
