@@ -137,7 +137,6 @@ graph TD
     E --> H(PackageParser);
     
     subgraph "Parsing Execution"
-        direction LR
         F --> I{Scopes};
         G --> I;
         H --> I;
@@ -232,7 +231,7 @@ sequenceDiagram
 
     EntityParser->>TokenStream: Expect(KEYWORD 'entity')
     EntityParser->>TokenStream: Current (get entity name)
-    Entity_Name_Loop[Loop until 'is']
+    loop until 'is'
         EntityParser->>TokenStream: MoveNext()
     end
 
@@ -240,7 +239,7 @@ sequenceDiagram
         EntityParser->>GenericParser: new(stream, scopes, name)
         EntityParser->>GenericParser: Parse()
         activate GenericParser
-        GenericParser_Loop[Loop: Parse generic declarations]
+        loop Parse generic declarations
             GenericParser->>TokenStream: Expect/MoveNext
         end
         deactivate GenericParser
@@ -250,7 +249,7 @@ sequenceDiagram
         EntityParser->>PortsParser: new(stream, scopes, name)
         EntityParser->>PortsParser: Parse()
         activate PortsParser
-        PortsParser_Loop[Loop: Parse port declarations]
+        loop Parse port declarations
             PortsParser->>TokenStream: Expect/MoveNext
         end
         deactivate PortsParser
