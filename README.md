@@ -118,6 +118,149 @@ This module relies on the following .NET libraries:
 
 All other code is self-contained within this project module.
 
+## 6. Parser Flow and Class Relationships
+
+To better understand the parser's internal workings, the following diagrams illustrate the data flow, class relationships, and sequence of operations.
+
+### 6.1. High-Level Parsing Flow
+
+This diagram shows the overall process, starting from the raw VHDL file and ending with the structured `Scopes` dictionary that the simulation engine can use.
+
+```mermaid
+graph TD
+    A[VHDL File (.vhdl)] --> B(Tokenizer);
+    B --> C{List<Token>};
+    C --> D[TokenStream];
+    D --> E(Parser);
+    E --> F(EntityParser);
+    E --> G(ArchitectureParser);
+    E --> H(PackageParser);
+    
+    subgraph "Parsing Execution"
+        direction LR
+        F --> I{Scopes};
+        G --> I;
+        H --> I;
+    end
+
+    I --> J[Simulation Engine];
+
+    style B fill:#f9f,stroke:#333,stroke-width:2px
+    style E fill:#ccf,stroke:#333,stroke-width:2px
+    style J fill:#bbf,stroke:#333,stroke-width:2px
+```
+
+### 6.2. Detailed Class Diagram
+
+This diagram details the composition and inheritance relationships between the key classes in the parser module. It highlights how specialized parsers are composed to handle different parts of the VHDL syntax.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class Parser {
+        +ParseV2()
+        +GetScopes() : Dictionary~string, HashSet~Variable~~
+    }
+
+    class Tokenizer {
+        +TokenizeLine(string)
+        +GetDictionaryType() : List~Token~
+    }
+
+    class TokenStream {
+        +Current : Token
+        +MoveNext()
+        +Expect(TYPE)
+    }
+
+    class EntityParser {
+        +Parse()
+    }
+
+    class ArchitectureParser {
+        +Parse()
+    }
+
+    class GenericParser {
+        +Parse()
+    }
+
+    class PortsParser {
+        +Parse()
+    }
+
+    class VectorParser {
+        +Parse()
+    }
+
+    class RangeParser {
+        +Parse()
+    }
+
+    Parser o-- TokenStream : uses
+    Parser o-- EntityParser : creates
+    Parser o-- ArchitectureParser : creates
+    Tokenizer --> TokenStream : provides tokens for
+
+    EntityParser o-- GenericParser : creates
+    EntityParser o-- PortsParser : creates
+
+    GenericParser o-- VectorParser : uses
+    GenericParser o-- RangeParser : uses
+
+    VectorParser <|-- RangeParser : inherits from
+```
+
+### 6.3. Sequence Diagram: Parsing an Entity
+
+This sequence diagram shows the runtime interactions between objects when the `ParseV2()` method encounters an `entity` block in the VHDL code.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Parser
+    participant TokenStream
+    participant EntityParser
+    participant GenericParser
+    participant PortsParser
+
+    User->>Parser: ParseV2()
+    Parser->>EntityParser: new(stream, scopes)
+    Parser->>EntityParser: Parse()
+    activate EntityParser
+
+    EntityParser->>TokenStream: Expect(KEYWORD 'entity')
+    EntityParser->>TokenStream: Current (get entity name)
+    Entity_Name_Loop[Loop until 'is']
+        EntityParser->>TokenStream: MoveNext()
+    end
+
+    alt 'generic' keyword found
+        EntityParser->>GenericParser: new(stream, scopes, name)
+        EntityParser->>GenericParser: Parse()
+        activate GenericParser
+        GenericParser_Loop[Loop: Parse generic declarations]
+            GenericParser->>TokenStream: Expect/MoveNext
+        end
+        deactivate GenericParser
+    end
+
+    alt 'port' keyword found
+        EntityParser->>PortsParser: new(stream, scopes, name)
+        EntityParser->>PortsParser: Parse()
+        activate PortsParser
+        PortsParser_Loop[Loop: Parse port declarations]
+            PortsParser->>TokenStream: Expect/MoveNext
+        end
+        deactivate PortsParser
+    end
+
+    EntityParser->>TokenStream: Expect(KEYWORD 'end')
+    deactivate EntityParser
+
+```
+
 ## 6. Module Diagram
 ```mermaid
 graph TD
