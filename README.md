@@ -128,8 +128,8 @@ This diagram shows the overall process, starting from the raw VHDL file and endi
 
 ```mermaid
 graph TD
-    A[VHDL File (.vhdl)] --> B(Tokenizer);
-    B --> C{List<Token>};
+    A["VHDL File (.vhdl)"] --> B(Tokenizer);
+    B --> C{"List<Token>"};
     C --> D[TokenStream];
     D --> E(Parser);
     E --> F(EntityParser);
