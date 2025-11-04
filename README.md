@@ -197,6 +197,27 @@ classDiagram
         +Parse()
     }
 
+    subgraph Models
+        class Token {
+            +Value : string
+            +Type : TYPE
+            +Line : int
+            +Col : int
+        }
+        class Variable {
+            +Name : string
+            +Type : DATATYPES
+            +Value : string
+            +OnValueChange
+        }
+        class Constants {
+            <<static>>
+            +TYPE
+            +DATATYPES
+            +KEYWORDS
+        }
+    end
+
     Parser o-- TokenStream : uses
     Parser o-- EntityParser : creates
     Parser o-- ArchitectureParser : creates
