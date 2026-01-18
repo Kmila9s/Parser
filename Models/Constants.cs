@@ -101,7 +101,11 @@ public class Constants{
         /// <summary>Input port - receives data from external source.</summary>
         IN,
         /// <summary>Output port - sends data to external destination.</summary>
-        OUT
+        OUT,
+        /// <summary>Bidirectional port - can both receive and send data.</summary>
+        INOUT,
+        /// <summary>Buffer port - output that can be read internally.</summary>
+        BUFFER
     }
     /// <summary>
     /// Converts a string representation of a data type to its corresponding DATATYPES enum value.

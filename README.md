@@ -84,6 +84,7 @@ The parser supports a comprehensive set of VHDL language features:
 
 *   **Top-level Structures**: `entity`, `architecture`, `package`, `package body`, `configuration`
 *   **Declarations**: `signal`, `constant`, `variable`, `attribute`, `alias`, `component`, `disconnect`, `type`, `subtype`
+*   **Custom Types**: `record` types (with field declarations), `array` types (with index constraints), enumeration types, subtypes with constraints
 *   **Port and Generic**: Full port/generic declarations with vector types, ranges, and default values
 *   **Sequential Statements**: `if-then-elsif-else`, `case-when`, `for-loop`, `while-loop`, `exit`, `wait`, `null`, `return`
 *   **Concurrent Statements**: Signal assignments, component instantiations with `port map` and `generic map`
@@ -129,6 +130,33 @@ end block my_block;
 *   Nested blocks (blocks inside blocks)
 *   Labeled blocks with optional end labels
 *   Guarded signal assignments with the `guarded` keyword
+
+### Custom Type Support
+
+The parser supports user-defined types including records, arrays, and enumerations:
+
+```vhdl
+-- Record type declaration
+type ComplexNumber is record
+    re : signed(15 downto 0);
+    im : signed(15 downto 0);
+end record;
+
+-- Array type declaration
+type MemoryArray is array (0 to 255) of std_logic_vector(7 downto 0);
+
+-- Enumeration type declaration
+type State is (IDLE, RUNNING, STOPPED, ERROR);
+
+-- Subtype declaration
+subtype SmallInt is integer range 0 to 100;
+```
+
+**Supported features:**
+*   Record types with multiple fields of various data types
+*   Array types with index constraints (using `to` or `downto`)
+*   Enumeration types with named constants (added to scope automatically)
+*   Subtype declarations with range constraints
 
 ### Component Instantiation
 
@@ -467,7 +495,11 @@ graph TD
 
 ### Version 0.13.0 (2025-12-13)
 
-This version includes comprehensive documentation improvements and minor code enhancements.
+This version includes comprehensive documentation improvements, bug fixes, and minor code enhancements.
+
+#### Bug Fixes
+
+*   **Memory Leak Fix in TokenStream**: Fixed significant memory leak caused by each `TokenStream` instance creating its own `LoggerFactory`. Now uses a static shared `LoggerFactory` to prevent memory accumulation during repeated parsing operations.
 
 #### Documentation Enhancements
 
@@ -647,7 +679,7 @@ This version includes significant improvements to the parser's handling of compl
 |-------|-------------|
 | `Token` | Represents a lexical token with `Value`, `Type`, `Line`, and `Col` properties |
 | `Variable` | Represents VHDL signals, ports, variables, and constants with reactive `OnValueChange` event |
-| `Constants` | Static class containing token types (`TYPE` enum), data types (`DATATYPES` enum), error codes (`ParseExceptions` enum), and regex patterns |
+| `Constants` | Static class containing token types (`TYPE` enum), data types (`DATATYPES` enum), error codes (`ParseExceptions` enum), port types (`PortType` enum: `IN`, `OUT`, `INOUT`, `BUFFER`), and regex patterns |
 | `ParserException` | Custom exception with rich error context including line/column info |
 
 ### Interfaces
@@ -681,4 +713,4 @@ This version includes significant improvements to the parser's handling of compl
 | `RangeParser` | Parses `range` declarations (extends `VectorParser`) |
 
 ---
-*Last updated: 2025-12-13*
+*Last updated: 2026-01-17*
