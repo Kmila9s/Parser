@@ -74,6 +74,14 @@ public class Parser{
                 case "package":
                     packageParser.Parse();
                 break;
+                case "configuration":
+                    // Skip configuration block - parse until 'end ConfigName;'
+                    ParseConfigurationBlock();
+                break;
+                case "library":
+                    // Multiple library declarations can appear between design units
+                    ParseLibrariesUsage();
+                break;
                 default:
                     throw new NotImplementedException();
                 //break;
@@ -692,5 +700,67 @@ public class Parser{
             dataType.Equals("BOOLEAN_VECTOR") || dataType.Equals("INTEGER_VECTOR")
         )
             ParseVectorBody(EntityName);
+    }
+    /// <summary>
+    /// Parses a VHDL configuration block. This is a basic implementation that skips
+    /// over the configuration syntax until 'end ConfigName;'.
+    /// </summary>
+    private void ParseConfigurationBlock(){
+        _logger.LogInformation("Parsing configuration block");
+        _streamer.Expect(KEYWORDS); // configuration
+        string configName = _streamer.Current?.Value ?? string.Empty;
+        _streamer.Expect(IDENTIFIERS); // ConfigName
+        _streamer.Expect(KEYWORDS); // of
+        _streamer.Expect(IDENTIFIERS); // EntityName
+        _streamer.Expect(KEYWORDS); // is
+        // Parse configuration body - skip nested 'for' blocks
+        ParseConfigurationBody();
+        _streamer.Expect(KEYWORDS); // end
+        _streamer.Expect(IDENTIFIERS); // ConfigName
+        _streamer.Expect(OPERATORS); // ;
+        _logger.LogInformation("Configuration block parsed");
+    }
+    /// <summary>
+    /// Parses the body of a configuration block, handling nested 'for' blocks.
+    /// Format: for ArchName | for CompLabel : CompType
+    /// </summary>
+    private void ParseConfigurationBody(){
+        while(_streamer.Current?.Value.ToLower() != "end"){
+            if(_streamer.Current?.Value.ToLower() == "for"){
+                _streamer.Expect(KEYWORDS); // for
+                _streamer.Expect(IDENTIFIERS); // architecture/component label name
+                // Handle component binding format: for CompLabel : CompType
+                if(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value == ":"){
+                    _streamer.Expect(OPERATORS); // :
+                    _streamer.Expect(IDENTIFIERS); // component type name
+                }
+                // Handle use configuration clause
+                while(_streamer.Current?.Value.ToLower() == "use"){
+                    _streamer.Expect(KEYWORDS); // use
+                    _streamer.Expect(KEYWORDS); // configuration/entity
+                    // Skip qualified names like work.Multiplier_Small or work.GPIO_Controller(RTL)
+                    while(_streamer.Current?.Type == IDENTIFIERS ||
+                          _streamer.Current?.Type == QUALIFIED_IDENTIFIERS ||
+                          _streamer.Current?.Value == "."){
+                        _streamer.MoveNext();
+                    }
+                    // Handle optional architecture binding: (architecture_name)
+                    if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
+                        _streamer.Expect(PARENTHESIS); // (
+                        _streamer.Expect(IDENTIFIERS); // architecture name
+                        _streamer.Expect(PARENTHESIS); // )
+                    }
+                    _streamer.Expect(OPERATORS); // ;
+                }
+                // Nested for blocks
+                ParseConfigurationBody();
+                _streamer.Expect(KEYWORDS); // end
+                _streamer.Expect(KEYWORDS); // for
+                _streamer.Expect(OPERATORS); // ;
+            }
+            else{
+                break;
+            }
+        }
     }
 }

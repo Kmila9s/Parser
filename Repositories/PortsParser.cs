@@ -83,7 +83,15 @@ public class PortsParser : IParseDeclarations {
                 p.Type = Constants.GetDatatype(dataType);
                 _scopes[_name].Add(p);
             });
-            _streamer.Expect(KEYWORDS);
+            // Data type can be keyword (std_logic, integer) or identifier (custom type)
+            if(_streamer.Current?.Type == KEYWORDS)
+                _streamer.Expect(KEYWORDS);
+            else if(_streamer.Current?.Type == IDENTIFIERS)
+                _streamer.Expect(IDENTIFIERS);
+            // Handle array type with bounds like coefficient_array_t(0 to N-1)
+            if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
+                ParseTypeBounds();
+            }
         }else{
             if(_vectorParser.Parsed)
                 variables.ForEach(p => {
@@ -99,11 +107,27 @@ public class PortsParser : IParseDeclarations {
     }
 
     /// <summary>
+    /// Parses type bounds like (0 to N-1) for array types.
+    /// </summary>
+    private void ParseTypeBounds(){
+        _streamer.Expect(PARENTHESIS); // (
+        int depth = 1;
+        while(depth > 0 && _streamer.Current != null){
+            if(_streamer.Current?.Type == PARENTHESIS){
+                if(_streamer.Current?.Value == "(") depth++;
+                else if(_streamer.Current?.Value == ")") depth--;
+                if(depth == 0) break;
+            }
+            _streamer.MoveNext();
+        }
+        _streamer.Expect(PARENTHESIS); // )
+    }
+    /// <summary>
     /// Checks if a variable exists within the current port's scope.
     /// </summary>
     /// <param name="variable">The name of the variable to check.</param>
     /// <returns>True if the variable exists, otherwise false.</returns>
-    public bool ExistsVariable(string variable) 
+    public bool ExistsVariable(string variable)
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     /// <summary>
     /// Gets the dictionary of scopes.

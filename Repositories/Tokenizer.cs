@@ -128,7 +128,7 @@ public class Tokenizer{
     /// </summary>
     private List<string> TokenizeSpecialCharacters(string line){
         try{
-            List<string> tokens = new(), separators = new(){ ":=", "<=", "=>"};
+            List<string> tokens = new(), separators = new(){ ":=", "<=", "=>", "**", "/=", ">="};
             if(line.StartsWith("--")) return new();
             if(String.IsNullOrEmpty(line)) return new();
             foreach(var separator in separators){

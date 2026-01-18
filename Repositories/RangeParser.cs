@@ -42,28 +42,36 @@ public class RangeParser : VectorParser {
     /// Parses the body of the range declaration (e.g., '0 to 255').
     /// </summary>
     public override void ParseBody(){
-        if(CheckVariable(_streamer.Current))
+        // Parse range like "0 to MAX_ROWS - 1" - allow identifiers for package constants
+        ParseRangeExpression();
+        _streamer.Expect(KEYWORDS); // to or downto
+        ParseRangeExpression();
+    }
+
+    /// <summary>
+    /// Parses a range expression that can include identifiers, literals, and operators.
+    /// Handles expressions like MAX_ROWS - 1.
+    /// </summary>
+    private void ParseRangeExpression(){
+        // Parse the first value/identifier
+        if(_streamer.Current?.Type == IDENTIFIERS)
             _streamer.Expect(IDENTIFIERS);
-        else
+        else if(_streamer.Current?.Type == LITERALS)
             _streamer.Expect(LITERALS);
-        if(_streamer.Current?.Type == OPERATORS){
-            _streamer.MoveNext();
-            if(CheckVariable(_streamer.Current))
-                _streamer.Expect(IDENTIFIERS);
-            else
-                _streamer.Expect(LITERALS);
-        }
-        _streamer.Expect(KEYWORDS);
-        if(CheckVariable(_streamer.Current))
-            _streamer.Expect(IDENTIFIERS);
-        else
-            _streamer.Expect(LITERALS);
-        if(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";"){
-            _streamer.MoveNext();
-            if(CheckVariable(_streamer.Current))
-                _streamer.Expect(IDENTIFIERS);
-            else
-                _streamer.Expect(LITERALS);
+        // Continue parsing arithmetic operations
+        while(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";" &&
+              _streamer.Current?.Value != ":="){
+            string op = _streamer.Current.Value;
+            if(op == "+" || op == "-" || op == "*" || op == "/"){
+                _streamer.Expect(OPERATORS);
+                if(_streamer.Current?.Type == IDENTIFIERS)
+                    _streamer.Expect(IDENTIFIERS);
+                else if(_streamer.Current?.Type == LITERALS)
+                    _streamer.Expect(LITERALS);
+            }
+            else{
+                break;
+            }
         }
     }
     private bool IsRange(string dataType) 

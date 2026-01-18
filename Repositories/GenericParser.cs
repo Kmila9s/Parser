@@ -69,9 +69,14 @@ public class GenericParser : IParseGeneric {
                     _streamer.Expect(TIME_VARIABLES);
                 }
                 if(_streamer.Current?.Type == OPERATORS && _streamer.Current.Value != ";"){
-                    // Asignation
+                    // Asignation - value can be literal or identifier (package constant)
                     _streamer.Expect(OPERATORS);
-                    _streamer.Expect(LITERALS);
+                    if(_streamer.Current?.Type == LITERALS)
+                        _streamer.Expect(LITERALS);
+                    else if(_streamer.Current?.Type == IDENTIFIERS)
+                        _streamer.Expect(IDENTIFIERS);
+                    else if(_streamer.Current?.Type == QUALIFIED_IDENTIFIERS)
+                        _streamer.Expect(QUALIFIED_IDENTIFIERS);
                 }
                 if(_streamer.Current?.Type == KEYWORDS && _streamer.Current.Value.ToLower().Equals("after")){
                     _streamer.Expect(KEYWORDS); // after
