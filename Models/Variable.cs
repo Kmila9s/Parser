@@ -15,6 +15,20 @@ public class Variable {
     /// Gets or sets whether this is a stub variable (created for undeclared identifiers).
     /// </summary>
     public bool IsStub { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the custom type name for record/array types.
+    /// Used when the variable is declared with a user-defined type.
+    /// v0.15.0: Added to support record type field access.
+    /// </summary>
+    public string? CustomTypeName { get; set; } = null;
+
+    /// <summary>
+    /// Gets or sets the record field values for record type variables.
+    /// Keys are field names, values are the field values.
+    /// v0.15.0: Added to support record types.
+    /// </summary>
+    public Dictionary<string, object>? RecordFields { get; set; } = null;
     private DATATYPES _dataType = DATATYPES.UNKNOWN;
     /// <summary>
     /// Gets or sets the data type of the variable.
@@ -67,8 +81,13 @@ public class Variable {
             _ => DATATYPES.UNKNOWN
         };
     }
-    public override string ToString() => 
+    /// <summary>
+    /// Returns the string representation of the variable's value.
+    /// </summary>
+    /// <returns>The value as a string, or an empty string if null.</returns>
+    public override string ToString() =>
         Convert.ToString(Value ?? string.Empty) ?? string.Empty;
+    /// <summary>Backing field for the <see cref="Size"/> property.</summary>
     private int _size = 0;
     /// <summary>
     /// Gets or sets the size of the variable, typically for vector types.
@@ -144,6 +163,7 @@ public class Variable {
             Console.WriteLine($"[Variable.Size setter] '{Name}' FINAL _size={_size}");
 #endif
     } }
+    /// <summary>Backing field for the <see cref="Value"/> property.</summary>
     private object? _value = null;
     /// <summary>
     /// Occurs when the value of the variable changes.
@@ -178,17 +198,48 @@ public class Variable {
             }
         }
     }
+    /// <summary>
+    /// Gets or sets whether this variable represents a port in an entity declaration.
+    /// </summary>
     public bool IsPort { get; set; } = false;
+    /// <summary>
+    /// Gets or sets the direction of the port (IN, OUT, INOUT, BUFFER).
+    /// Only relevant when <see cref="IsPort"/> is true.
+    /// </summary>
     public PortType PortType { get; set; } = PortType.IN;
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Variable"/> class with a specified name.
+    /// </summary>
+    /// <param name="Name">The name of the variable.</param>
     public Variable(string Name){ this.Name = Name;}
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Variable"/> class with an empty name.
+    /// </summary>
     public Variable(){ this.Name = string.Empty;}
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Variable"/> class with name, value, type, and optional size.
+    /// </summary>
+    /// <param name="Name">The name of the variable.</param>
+    /// <param name="Value">The initial value.</param>
+    /// <param name="Type">The VHDL data type.</param>
+    /// <param name="Size">The size for vector types (default 0).</param>
     public Variable(string Name, object Value, DATATYPES Type, int Size = 0){
         this.Name = Name;
         this.Type = Type;
         this.Value = Value;
         this.Size = Size;
     }
+    /// <summary>
+    /// Allows implicit conversion from a string name to a Variable instance.
+    /// </summary>
+    /// <param name="Name">The variable name.</param>
     public static implicit operator Variable(string Name) => new(Name);
+    /// <summary>
+    /// Determines whether the specified object is equal to this variable by comparing names (case-insensitive).
+    /// Supports comparison with other <see cref="Variable"/> instances or <see cref="string"/> names.
+    /// </summary>
+    /// <param name="obj">The object to compare with.</param>
+    /// <returns>true if the names match (case-insensitive); otherwise, false.</returns>
     public override bool Equals(object? obj)
     {
         if(obj is Variable var)
@@ -206,10 +257,16 @@ public class Variable {
     {
         return this.Name?.ToLower().GetHashCode() ?? 0;
     }
+    /// <summary>Case-insensitive equality: string == Variable.</summary>
     public static bool operator ==(string p, Variable var) => var?.Name != null && p?.ToLower() == var.Name.ToLower();
+    /// <summary>Case-insensitive equality: Variable == string.</summary>
     public static bool operator ==(Variable var, string p) => var?.Name != null && p?.ToLower() == var.Name.ToLower();
+    /// <summary>Equality comparison between two Variable instances by name.</summary>
     public static bool operator ==(Variable var, Variable comp) => var?.Name == comp?.Name;
+    /// <summary>Inequality comparison between two Variable instances by name.</summary>
     public static bool operator !=(Variable var, Variable comp) => var?.Name != comp?.Name;
+    /// <summary>Case-insensitive inequality: string != Variable.</summary>
     public static bool operator !=(string p, Variable var) => !(var?.Name != null && p?.ToLower() == var.Name.ToLower());
+    /// <summary>Case-insensitive inequality: Variable != string.</summary>
     public static bool operator !=(Variable var, string p) => !(var?.Name != null && p?.ToLower() == var.Name.ToLower());
 }

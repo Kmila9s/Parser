@@ -5,6 +5,7 @@
     <TargetFrameworks>net9.0;net9.0-android</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AndroidUseAndroidX>true</AndroidUseAndroidX>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateRuntimeConfigDevFile>false</GenerateRuntimeConfigDevFile>

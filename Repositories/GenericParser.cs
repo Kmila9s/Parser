@@ -37,6 +37,9 @@ public class GenericParser : IParseGeneric {
         ParseStructure();
         _logger.LogInformation("Generic Parsed");
     }
+    /// <summary>
+    /// Parses the entire generic structure including the 'generic' keyword, parentheses, and all constant declarations within.
+    /// </summary>
     public void ParseStructure(){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(PARENTHESIS);

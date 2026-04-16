@@ -53,6 +53,9 @@ public class EntityParser : IParseStructures {
     /// </summary>
     /// <returns>The dictionary of scopes.</returns>
     public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
+    /// <summary>
+    /// Parses the entity declaration, including entity name, generic block, port block, and end closure.
+    /// </summary>
     public void ParseDeclaration(){
         _streamer.Expect(KEYWORDS);
         _name = _streamer.Current?.Value ?? string.Empty;

@@ -13,7 +13,9 @@ public class DataStructuresParser : IParseStructures {
     private TokenStream _streamer;
     private readonly ILogger<DataStructuresParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<DataStructuresParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
+    /// <summary>Current scope name, parent entity name, and implicit return variable for function contexts.</summary>
     private string _name = string.Empty, _entityName = string.Empty, _implicitReturnVariable = string.Empty;
+    /// <summary>Whether parsing within a function body, and whether an implicit return variable has been declared.</summary>
     private bool _isFunction = false, _implicitDeclaration = false;
 
     /// <summary>
@@ -82,6 +84,10 @@ public class DataStructuresParser : IParseStructures {
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable) ||
             _scopes.ContainsKey(_entityName) && _scopes[_entityName].Contains(variable) ||
             IsStandardLibraryFunction(variable);
+    /// <summary>
+    /// Not implemented. DataStructuresParser uses <see cref="ParseBodyDeclaration"/> instead of standalone declaration parsing.
+    /// </summary>
+    /// <exception cref="NotImplementedException">Always thrown.</exception>
     public void ParseDeclaration() => throw new NotImplementedException();
     /// <summary>
     /// Parses a SINGLE concurrent statement (for use from architecture body context).

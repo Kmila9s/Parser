@@ -292,11 +292,15 @@ classDiagram
 
     class Parser {
         +ParseV2()
+        +Parse()
         +GetScopes() : Dictionary~string, HashSet~Variable~~
     }
 
     class Tokenizer {
+        +ReadFile()
+        +ReadString(string)
         +TokenizeLine(string)
+        +Evaluate(string) : Token
         +GetDictionaryType() : List~Token~
     }
 
@@ -308,52 +312,83 @@ classDiagram
         +Match(TYPE) : bool
         +SetRollBack()
         +RollBack()
+        +EndStream() : bool
     }
 
     class EntityParser {
         +Parse()
         +ParseDeclaration()
+        +GetName() : string
+        +ExistsVariable(string) : bool
     }
 
     class ArchitectureParser {
         +Parse()
         +ParseDeclaration()
-        +ParseBodyDeclaration()
         +ParseHeader()
+        +ParseBodyDeclaration()
+        +ParseGenerateStatement()
+        +ParseBlockStatement()
+        +ParseComponentInstantiation()
     }
 
     class PackageParser {
         +Parse()
         +ParseDeclaration()
         +ParseBodyDeclaration()
+        +ParseProcedureBody()
     }
 
     class DataStructuresParser {
         +Parse()
         +ParseSequentialBody()
         +ParseProcess()
+        +ParseIfStructure()
+        +ParseCaseStructure()
+        +ParseForStructure()
+        +ParseWhileStructure()
+        +ParseAsignations()
+        +ParseOperation()
     }
 
     class FunctionParser {
         +Parse()
         +ParseDeclaration()
         +ParseBodyDeclaration()
+        +ParseReturnTypeBounds()
     }
 
     class GenericParser {
         +Parse()
         +ParseStructure()
+        +ParseAssignations()
+        +ParseAssignationsWithComas()
     }
 
     class PortsParser {
         +Parse()
         +ParseDeclarations()
+        +ParseTypeBounds()
+    }
+
+    class ArchitectureAssignationParser {
+        +Parse()
+        +ParseDeclarations()
+        +ParseAttributeDeclaration()
+        +ParseDisconnectSpecification()
+    }
+
+    class FunctionAssignationParser {
+        +Parse()
+        +ParseDeclarations()
     }
 
     class VectorParser {
+        +Parsed : bool
         +Parse()
         +ParseBody()
         +ParseAttributes()
+        +ParseBoundExpression()
     }
 
     class RangeParser {
@@ -375,6 +410,9 @@ classDiagram
             +Size : int
             +IsPort : bool
             +PortType : PortType
+            +IsStub : bool
+            +CustomTypeName : string?
+            +RecordFields : Dictionary?
             +OnValueChange : event
         }
         class Constants {
@@ -390,6 +428,9 @@ classDiagram
             +Column : int
             +ErrorCode : ParseExceptions
             +Context : string
+            +UnexpectedToken()$ ParserException
+            +UndeclaredVariable()$ ParserException
+            +TypeMismatch()$ ParserException
         }
     end
 
@@ -406,8 +447,13 @@ classDiagram
     ArchitectureParser o-- FunctionParser : creates
     ArchitectureParser o-- ArchitectureAssignationParser : creates
 
-    FunctionParser o-- DataStructuresParser : creates
+    PackageParser o-- DataStructuresParser : creates
+    PackageParser o-- FunctionParser : creates
 
+    FunctionParser o-- DataStructuresParser : creates
+    FunctionParser o-- FunctionAssignationParser : creates
+
+    PortsParser o-- VectorParser : uses
     GenericParser o-- VectorParser : uses
     GenericParser o-- RangeParser : uses
 
@@ -463,35 +509,71 @@ sequenceDiagram
 
 ```
 
-## 6. Module Diagram
+### 6.4. Module Diagram
 ```mermaid
 graph TD
 
-    user["User<br>/."]
-    vhdl_files["VHDL Files<br>/test1.vhdl"]
-    output_storage["Output Storage<br>/output"]
-    subgraph parser_system["VHDL Parser System<br>[External]"]
-        subgraph parser_app_boundary["VHDL Parser Application<br>[External]"]
+    vhdl_files["VHDL Source Files<br>(.vhdl)"]
+    subgraph parser_system["VHDL Parser Module"]
+        subgraph repositories["Repositories"]
             tokenizer["Tokenizer<br>/Repositories/Tokenizer.cs"]
-            parser_core["Parser Core<br>/Repositories/Parser.cs"]
-            vhdl_specific_parsers["VHDL Specific Parsers<br>/Repositories"]
-            models["Models<br>/Models"]
-            %% Edges at this level (grouped by source)
-            parser_core["Parser Core<br>/Repositories/Parser.cs"] -->|"Uses | Token Stream"| tokenizer["Tokenizer<br>/Repositories/Tokenizer.cs"]
-            parser_core["Parser Core<br>/Repositories/Parser.cs"] -->|"Delegates parsing to | VHDL constructs"| vhdl_specific_parsers["VHDL Specific Parsers<br>/Repositories"]
-            parser_core["Parser Core<br>/Repositories/Parser.cs"] -->|"Uses | ParserException and other data structures"| models["Models<br>/Models"]
-            tokenizer["Tokenizer<br>/Repositories/Tokenizer.cs"] -->|"Uses | Token data structure"| models["Models<br>/Models"]
-            vhdl_specific_parsers["VHDL Specific Parsers<br>/Repositories"] -->|"Uses | Variable and other data structures"| models["Models<br>/Models"]
+            token_stream["TokenStream<br>/Repositories/TokenStream.cs"]
+            parser_core["Parser<br>/Repositories/Parser.cs"]
+            structural_parsers["Structural Parsers<br>EntityParser, ArchitectureParser,<br>PackageParser"]
+            declaration_parsers["Declaration Parsers<br>PortsParser, GenericParser,<br>ArchitectureAssignationParser,<br>FunctionAssignationParser"]
+            statement_parsers["Statement Parsers<br>DataStructuresParser, FunctionParser"]
+            helper_parsers["Helper Parsers<br>VectorParser, RangeParser"]
+        end
+        subgraph models["Models"]
+            token_model["Token"]
+            variable_model["Variable"]
+            constants_model["Constants"]
+            exception_model["ParserException"]
+        end
+        subgraph interfaces["Interfaces"]
+            iparser["IParser, IParserBaseMethods"]
+            iparse_structures["IParseStructures"]
+            iparse_declarations["IParseDeclarations"]
+            iparse_vector["IParseVectorStructure"]
+            iparse_generic["IParseGeneric"]
         end
     end
-    %% Edges at this level (grouped by source)
-    user["User<br>/."] -->|"Interacts with | Command Line Interface"| parser_core["Parser Core<br>/Repositories/Parser.cs"]
-    parser_core["Parser Core<br>/Repositories/Parser.cs"] -->|"Reads | VHDL code"| vhdl_files["VHDL Files<br>/test1.vhdl"]
-    parser_core["Parser Core<br>/Repositories/Parser.cs"] -->|"Writes | Parsed data"| output_storage["Output Storage<br>/output"]
+
+    scopes["Scopes Dictionary<br>Dictionary&lt;string, HashSet&lt;Variable&gt;&gt;"]
+    downstream["Downstream Modules<br>(Debugger / Interpreter)"]
+
+    vhdl_files -->|"reads"| tokenizer
+    tokenizer -->|"produces List&lt;Token&gt;"| token_stream
+    token_stream -->|"consumed by"| parser_core
+    parser_core -->|"delegates to"| structural_parsers
+    structural_parsers -->|"delegates to"| declaration_parsers
+    structural_parsers -->|"delegates to"| statement_parsers
+    declaration_parsers -->|"uses"| helper_parsers
+
+    structural_parsers -.->|"implements"| interfaces
+    declaration_parsers -.->|"implements"| interfaces
+    statement_parsers -.->|"implements"| interfaces
+    helper_parsers -.->|"implements"| interfaces
+
+    repositories -->|"uses"| models
+    parser_core -->|"populates"| scopes
+    scopes -->|"consumed by"| downstream
 
 ```
 
 ## 7. Changelog
+
+### Version 0.13.1 (2026-02-21)
+
+#### Documentation Enhancements
+
+*   **Variable.cs**: Added comprehensive XML documentation for all constructors, operators, backing fields (`_size`, `_value`), `IsPort`, `PortType`, `ToString()`, implicit conversion, and equality/inequality operators
+*   **DataStructuresParser.cs**: Added XML docs for `ParseDeclaration()` (throws NotImplementedException), and documented private field groups
+*   **VectorParser.cs**: Added XML docs for `CheckVariable()` protected method and `IsVector()` private method
+*   **TokenizerTests.cs**: Added XML documentation for test class and test method with parameter descriptions
+*   **Program.cs**: Added XML documentation for the test runner class and its entry point
+
+---
 
 ### Version 0.13.0 (2025-12-13)
 
@@ -678,8 +760,8 @@ This version includes significant improvements to the parser's handling of compl
 | Class | Description |
 |-------|-------------|
 | `Token` | Represents a lexical token with `Value`, `Type`, `Line`, and `Col` properties |
-| `Variable` | Represents VHDL signals, ports, variables, and constants with reactive `OnValueChange` event |
-| `Constants` | Static class containing token types (`TYPE` enum), data types (`DATATYPES` enum), error codes (`ParseExceptions` enum), port types (`PortType` enum: `IN`, `OUT`, `INOUT`, `BUFFER`), and regex patterns |
+| `Variable` | Represents VHDL signals, ports, variables, and constants with properties: `Name`, `Type`, `Value`, `Size`, `IsPort`, `PortType`, `IsStub`, `CustomTypeName`, `RecordFields`, and reactive `OnValueChange` event. Includes static `GetDatatype()` for type string resolution. |
+| `Constants` | Static class containing token types (`TYPE` enum), data types (`DATATYPES` enum), error codes (`ParseExceptions` enum), operator types (`OperatorType` enum: `ASSIGNATION`, `LOGIC_OPERATION`, `ARITH_OPERATION`, `COMPARATION`), port types (`PortType` enum: `IN`, `OUT`, `INOUT`, `BUFFER`), and regex patterns for token classification |
 | `ParserException` | Custom exception with rich error context including line/column info |
 
 ### Interfaces
@@ -688,10 +770,10 @@ This version includes significant improvements to the parser's handling of compl
 |-----------|-------------|
 | `IParser` | Base interface with `Parse()` method |
 | `IParserBaseMethods` | Methods for scope/variable management: `ExistsVariable()`, `GetScopes()` |
-| `IParseStructures` | For top-level structures (entity, architecture): `ParseDeclaration()`, `ParseBodyDeclaration()` |
+| `IParseStructures` | For top-level structures (entity, architecture, package): `GetName()`, `ParseDeclaration()`, `ParseBodyDeclaration()` |
 | `IParseDeclarations` | For declaration blocks: `ParseDeclarations()` |
 | `IParseVectorStructure` | For vector types: `ParseBody()` |
-| `IParseGeneric` | For generic blocks: `ParseStructure()`, `ParseAssignations()` |
+| `IParseGeneric` | For generic blocks: `ParseStructure()`, `ParseAssignations()`, `ParseAssignationsWithComas()` |
 
 ### Parsers
 
@@ -713,4 +795,4 @@ This version includes significant improvements to the parser's handling of compl
 | `RangeParser` | Parses `range` declarations (extends `VectorParser`) |
 
 ---
-*Last updated: 2026-01-17*
+*Last updated: 2026-02-21*

@@ -6,8 +6,20 @@ using System.Linq;
 
 namespace Parser.Tests;
 
+/// <summary>
+/// Unit tests for the <see cref="Tokenizer"/> class, verifying correct tokenization
+/// of various VHDL input patterns including declarations, assignments, comments, and edge cases.
+/// </summary>
 public class TokenizerTests
 {
+    /// <summary>
+    /// Verifies that the tokenizer produces the correct number of tokens, first token, and last token
+    /// for a variety of VHDL input lines.
+    /// </summary>
+    /// <param name="vhdlLine">The VHDL source line to tokenize.</param>
+    /// <param name="expectedTokenCount">Expected number of tokens produced.</param>
+    /// <param name="expectedFirstToken">Expected value of the first token, or null if empty.</param>
+    /// <param name="expectedLastToken">Expected value of the last token, or null if empty.</param>
     [Theory]
     [InlineData("entity MyCounter is", 3, "entity", "is")] // Simple entity declaration
     [InlineData("signal clk : std_logic; -- This is a clock signal", 5, "signal", ";")] // Declaration with a comment

@@ -4,8 +4,17 @@ using Parser.Repositories;
 
 namespace Parser;
 
+/// <summary>
+/// Test runner for the VHDL Parser module.
+/// Runs all 20 VHDL test files through the ParseV2 pipeline and reports pass/fail results.
+/// Supports single-file debugging via command-line argument.
+/// </summary>
 class Program
 {
+    /// <summary>
+    /// Entry point for the Parser test runner.
+    /// </summary>
+    /// <param name="args">Optional: a single VHDL file path to parse in debug mode.</param>
     static void Main(string[] args)
     {
         // Test single file for debugging
