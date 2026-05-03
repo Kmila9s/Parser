@@ -10,7 +10,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class FunctionParser : IParseStructures {
     private TokenStream _streamer;
-    private readonly ILogger<ArchitectureParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureParser>();
+    private readonly ILogger<ArchitectureParser> _logger = SharedLogging.Factory.CreateLogger<ArchitectureParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private string _name = string.Empty, _root = string.Empty, _returnType = string.Empty;
     private DataStructuresParser _dataStructuresParser = default!;

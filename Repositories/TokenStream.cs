@@ -13,10 +13,7 @@ public class TokenStream
     private int _currentPosition = 0, _rollBack = 0;
     private Token? _lastToken = null;  // Track last valid token for error reporting
 
-    // v0.13.0 Fix: Use static shared LoggerFactory to prevent memory leak
-    // Previously each TokenStream instance created its own LoggerFactory, causing significant memory leaks
-    private static readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-    private static readonly ILogger<TokenStream> _logger = _loggerFactory.CreateLogger<TokenStream>();
+    private static readonly ILogger<TokenStream> _logger = SharedLogging.Factory.CreateLogger<TokenStream>();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TokenStream"/> class.

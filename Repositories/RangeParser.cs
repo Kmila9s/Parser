@@ -10,7 +10,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class RangeParser : VectorParser {
     private readonly TokenStream _streamer;
-    private readonly ILogger<RangeParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<RangeParser>();
+    private readonly ILogger<RangeParser> _logger = SharedLogging.Factory.CreateLogger<RangeParser>();
     private string _name;
 
     /// <summary>

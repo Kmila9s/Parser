@@ -10,7 +10,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class FunctionAssignationParser : IParseDeclarations {
     private TokenStream _streamer;
-    private readonly ILogger<FunctionAssignationParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<FunctionAssignationParser>();
+    private readonly ILogger<FunctionAssignationParser> _logger = SharedLogging.Factory.CreateLogger<FunctionAssignationParser>();
     private string _name = string.Empty, _entityName = string.Empty;
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     //private VectorParser _vectorParser = default!;

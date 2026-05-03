@@ -11,7 +11,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class ArchitectureParser : IParseStructures {
     private TokenStream _streamer;
-    private readonly ILogger<ArchitectureParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureParser>();
+    private readonly ILogger<ArchitectureParser> _logger = SharedLogging.Factory.CreateLogger<ArchitectureParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private ArchitectureAssignationParser _archAssignations = default!;
     private DataStructuresParser _dataStructureParser = default!;
@@ -98,6 +98,15 @@ public class ArchitectureParser : IParseStructures {
                     _functionParser = new(_streamer, _scopes, _name);
                     _functionParser.Parse();
                 break;
+                case "procedure":
+                    // Procedures don't return values, so they don't compose
+                    // into expressions and we don't have a synthesiser path
+                    // for them yet. Skip the whole declaration up to its
+                    // matching `end procedure;` or `end <name>;` so the
+                    // parser doesn't bail when AXI BFM-style helper procs
+                    // appear in real-world VHDL.
+                    SkipProcedureDeclaration();
+                break;
                 case "component":
                     ParseComponentDeclaration();
                 break;
@@ -122,6 +131,50 @@ public class ArchitectureParser : IParseStructures {
             }
         }
     }
+    /// <summary>
+    /// Consumes a procedure declaration without parsing its body. Records
+    /// the procedure's name in the architecture scope so call sites resolve.
+    /// </summary>
+    /// <remarks>
+    /// A real <c>ProcedureParser</c> mirroring <c>FunctionParser</c> would
+    /// extract parameters and body. For now we just need the parser to
+    /// accept procedures without throwing — that's what real fixtures
+    /// (test_combinational_tb, AXI BFMs, package bodies with axi_write /
+    /// axi_read) require. Body synth is task #18's deeper follow-up.
+    /// </remarks>
+    private void SkipProcedureDeclaration(){
+        _logger.LogInformation("Skipping procedure declaration (body not synthesised)");
+        _streamer.Expect(KEYWORDS); // 'procedure'
+        string procName = _streamer.Current?.Value ?? string.Empty;
+        if (!string.IsNullOrEmpty(procName) && _scopes.ContainsKey(_name) &&
+            !_scopes[_name].Contains(procName))
+        {
+            _scopes[_name].Add(procName);
+        }
+        // Consume until we see `end procedure;` or `end <procName>;` at
+        // matching nesting depth.
+        string procLower = procName.ToLower();
+        while (_streamer.Current != null)
+        {
+            string val = _streamer.Current.Value.ToLower();
+            if (val == "end")
+            {
+                _streamer.MoveNext();
+                if (_streamer.Current == null) break;
+                string nextVal = _streamer.Current.Value.ToLower();
+                if (nextVal == "procedure" || nextVal == procLower)
+                {
+                    _streamer.MoveNext(); // 'procedure' or <procName>
+                    if (_streamer.Current?.Type == IDENTIFIERS) _streamer.MoveNext();
+                    if (_streamer.Current?.Value == ";") _streamer.MoveNext();
+                    return;
+                }
+                continue;  // some other end (end if/loop/case/...) — keep scanning
+            }
+            _streamer.MoveNext();
+        }
+    }
+
     /// <summary>
     /// Parses a type declaration in architecture header.
     /// </summary>
@@ -719,15 +772,62 @@ public class ArchitectureParser : IParseStructures {
         return isInstantiation;
     }
     /// <summary>
-    /// Parses a component instantiation like "label : component_name port map (...)".
+    /// Parses a component or direct-entity instantiation. Handles three real-
+    /// world syntaxes:
+    ///   <c>inst : Comp port map(...);</c>
+    ///   <c>inst : entity work.Sub port map(...);</c>
+    ///   <c>inst : entity work.Sub(arch_name) port map(...);</c>
     /// </summary>
     private void ParseComponentInstantiation(){
-        _logger.LogInformation("Parsing component instantiation");
+        _logger.LogInformation("Parsing component / entity instantiation");
         string label = _streamer.Current?.Value ?? string.Empty;
         _streamer.Expect(IDENTIFIERS); // label
         _streamer.Expect(OPERATORS); // :
-        string componentName = _streamer.Current?.Value ?? string.Empty;
-        _streamer.Expect(IDENTIFIERS); // component name
+
+        string componentName;
+
+        // VHDL-93 direct entity instantiation: `entity <library>.<EntityName>[(arch_name)]`.
+        if (_streamer.Current?.Type == KEYWORDS &&
+            _streamer.Current?.Value.ToLower() == "entity")
+        {
+            _streamer.MoveNext(); // 'entity'
+
+            // Library / entity name. Could be a single QUALIFIED_IDENTIFIERS
+            // token like `work.Sub` or two IDENTIFIERS separated by `.`.
+            if (_streamer.Current?.Type == QUALIFIED_IDENTIFIERS)
+            {
+                componentName = _streamer.Current?.Value ?? string.Empty;
+                _streamer.MoveNext();
+            }
+            else
+            {
+                componentName = _streamer.Current?.Value ?? string.Empty;
+                if (_streamer.Current?.Type == IDENTIFIERS) _streamer.MoveNext();
+                if (_streamer.Current?.Value == ".")
+                {
+                    _streamer.MoveNext(); // '.'
+                    if (_streamer.Current?.Type == IDENTIFIERS)
+                    {
+                        componentName = (componentName ?? string.Empty) + "." +
+                                        (_streamer.Current?.Value ?? string.Empty);
+                        _streamer.MoveNext();
+                    }
+                }
+            }
+
+            // Optional architecture suffix: `(rtl)` after the entity name.
+            if (_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "(")
+            {
+                _streamer.MoveNext(); // '('
+                if (_streamer.Current?.Type == IDENTIFIERS) _streamer.MoveNext();
+                _streamer.Expect(PARENTHESIS); // ')'
+            }
+        }
+        else
+        {
+            componentName = _streamer.Current?.Value ?? string.Empty;
+            _streamer.Expect(IDENTIFIERS); // component name
+        }
         // Parse optional generic map
         if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "generic"){
             _streamer.Expect(KEYWORDS); // generic

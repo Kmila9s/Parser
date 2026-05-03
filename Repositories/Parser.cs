@@ -9,7 +9,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class Parser{
     private TokenStream _streamer;
-    private readonly ILogger<Parser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<Parser>();
+    private readonly ILogger<Parser> _logger = SharedLogging.Factory.CreateLogger<Parser>();
     // The fields below are part of an older parsing implementation and are superseded by the Scopes dictionary.
     private Dictionary<string, List<string>> _ports = new(), _archDeclarations = new(), 
     _generics = new(), _packages = new();

@@ -11,7 +11,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class VectorParser : IParseVectorStructure {
     private readonly TokenStream _streamer;
-    private readonly ILogger<VectorParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<VectorParser>();
+    private readonly ILogger<VectorParser> _logger = SharedLogging.Factory.CreateLogger<VectorParser>();
     private Dictionary<string, HashSet<Variable>> _scopes;
     /// <summary>
     /// Gets the calculated size of the vector.
@@ -59,6 +59,11 @@ public class VectorParser : IParseVectorStructure {
         // that's not directly in our current scope hierarchy
         _streamer.MoveNext();
     }
+    /// <summary>
+    /// Determines if the given data type string represents a VHDL vector type.
+    /// </summary>
+    /// <param name="dataType">The uppercased data type name.</param>
+    /// <returns>True if the type is a vector type (STD_LOGIC_VECTOR, BIT_VECTOR, SIGNED, UNSIGNED, etc.).</returns>
     private bool IsVector(string dataType)
         => dataType.Equals("STD_LOGIC_VECTOR") || dataType.Equals("BIT_VECTOR") ||
             dataType.Equals("BOOLEAN_VECTOR") || dataType.Equals("INTEGER_VECTOR") ||
@@ -212,7 +217,12 @@ public class VectorParser : IParseVectorStructure {
         ParseOperation();
         _streamer.Expect(PARENTHESIS);
     }
-    protected bool CheckVariable(Token? current) 
+    /// <summary>
+    /// Checks if the given token is an identifier that exists as a declared variable in the current scope.
+    /// </summary>
+    /// <param name="current">The token to check.</param>
+    /// <returns>True if the token is a declared identifier; otherwise, false.</returns>
+    protected bool CheckVariable(Token? current)
         => current?.Type == IDENTIFIERS && ExistsVariable(current.Value);
     /// <summary>
     /// Gets the dictionary of scopes.

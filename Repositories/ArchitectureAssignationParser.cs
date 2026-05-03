@@ -7,11 +7,12 @@ using static Parser.Models.Constants.ParseExceptions;
 namespace Parser.Repositories;
 
 /// <summary>
-/// A parser for declarations within a VHDL architecture header, such as signals and constants.
+/// A parser for declarations within a VHDL architecture header, including signals, constants,
+/// attribute declarations/specifications, disconnect specifications, and guarded signal support.
 /// </summary>
 public class ArchitectureAssignationParser : IParseDeclarations{
     private TokenStream _streamer;
-    private readonly ILogger<ArchitectureAssignationParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ArchitectureAssignationParser>();
+    private readonly ILogger<ArchitectureAssignationParser> _logger = SharedLogging.Factory.CreateLogger<ArchitectureAssignationParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;

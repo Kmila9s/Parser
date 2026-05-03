@@ -12,7 +12,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class PortsParser : IParseDeclarations {
     private TokenStream _streamer;
-    private readonly ILogger<PortsParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PortsParser>();
+    private readonly ILogger<PortsParser> _logger = SharedLogging.Factory.CreateLogger<PortsParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;

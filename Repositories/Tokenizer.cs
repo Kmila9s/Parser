@@ -92,6 +92,30 @@ public class Tokenizer{
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.Add((tokens, _currentLine ++));
     }
+
+    /// <summary>
+    /// Same as <see cref="TokenizeLine(string)"/> but stamps the produced
+    /// tokens with an explicit source-file line index rather than the
+    /// internal call-order counter. Used by callers that have already
+    /// stripped blank/comment-only lines from the input but still want
+    /// downstream diagnostics to reference original file line numbers.
+    /// </summary>
+    /// <param name="line">The line of code to tokenize.</param>
+    /// <param name="sourceLineZeroBased">
+    /// 0-based original file line index. The error formatter adds +1
+    /// when rendering it as "Line N", so callers should pass the index
+    /// (i.e. <c>i</c> from <c>for (int i = 0; ...)</c>) not the 1-based
+    /// number.
+    /// </param>
+    public void TokenizeLineAt(string line, int sourceLineZeroBased){
+        List<string> tokens = new();
+        var preTokens = TokenizeSpaces(line.Trim());
+        foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
+        _tokens.Add((tokens, sourceLineZeroBased));
+        // Keep _currentLine aligned so any later TokenizeLine() call lands
+        // beyond the highest seen number rather than reverting to 0.
+        if (sourceLineZeroBased >= _currentLine) _currentLine = sourceLineZeroBased + 1;
+    }
     /// <summary>
     /// Tokenizes a single line and returns the raw string tokens.
     /// </summary>
@@ -172,7 +196,17 @@ public class Tokenizer{
     /// <summary>
     /// Evaluates all raw tokens and classifies them into <see cref="Token"/> objects.
     /// </summary>
-    public void Evaluate() => _typeDictionary = EvaluateTokens();
+    public void Evaluate()
+    {
+        _typeDictionary = EvaluateTokens();
+        // Drop the raw pre-evaluation token buffer — once Evaluate() has
+        // built _typeDictionary nobody else reads `_tokens`, but it used
+        // to stay alive for the lifetime of the Tokenizer instance
+        // (Entity / Architecture), doubling the in-memory cost of every
+        // parsed source file.
+        _tokens.Clear();
+        _tokens.TrimExcess();
+    }
     /// <summary>
     /// Classifies a single raw string token into a <see cref="Token"/> object using regular expressions.
     /// </summary>

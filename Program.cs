@@ -4,8 +4,17 @@ using Parser.Repositories;
 
 namespace Parser;
 
+/// <summary>
+/// Test runner for the VHDL Parser module.
+/// Runs all 20 VHDL test files through the ParseV2 pipeline and reports pass/fail results.
+/// Supports single-file debugging via command-line argument.
+/// </summary>
 class Program
 {
+    /// <summary>
+    /// Entry point for the Parser test runner.
+    /// </summary>
+    /// <param name="args">Optional: a single VHDL file path to parse in debug mode.</param>
     static void Main(string[] args)
     {
         // Test single file for debugging
@@ -26,11 +35,19 @@ class Program
         }
 
         // Test all VHDL files
+        // 1–20: original baseline.
+        // 21–40: curriculum-aligned stress fixtures spanning Diseño de Sistemas
+        // Digitales (registers, FSMs, counters, memories, ASM) and Sistemas en
+        // Chip (UART/SPI/I²C, PWM, IRQ controller, ADC, CORDIC).
         string[] testFiles = {
-            "test1.vhdl", "test2.vhdl", "test3.vhdl", "test4.vhdl", "test5.vhdl",
-            "test6.vhdl", "test7.vhdl", "test8.vhdl", "test9.vhdl", "test10.vhdl",
+            "test1.vhdl",  "test2.vhdl",  "test3.vhdl",  "test4.vhdl",  "test5.vhdl",
+            "test6.vhdl",  "test7.vhdl",  "test8.vhdl",  "test9.vhdl",  "test10.vhdl",
             "test11.vhdl", "test12.vhdl", "test13.vhdl", "test14.vhdl", "test15.vhdl",
-            "test16.vhdl", "test17.vhdl", "test18.vhdl", "test19.vhdl", "test20.vhdl"
+            "test16.vhdl", "test17.vhdl", "test18.vhdl", "test19.vhdl", "test20.vhdl",
+            "test21.vhdl", "test22.vhdl", "test23.vhdl", "test24.vhdl", "test25.vhdl",
+            "test26.vhdl", "test27.vhdl", "test28.vhdl", "test29.vhdl", "test30.vhdl",
+            "test31.vhdl", "test32.vhdl", "test33.vhdl", "test34.vhdl", "test35.vhdl",
+            "test36.vhdl", "test37.vhdl", "test38.vhdl", "test39.vhdl", "test40.vhdl"
         };
 
         var results = new List<string>();
