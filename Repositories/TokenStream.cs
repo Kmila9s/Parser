@@ -9,10 +9,14 @@ namespace Parser.Repositories;
 /// </summary>
 public class TokenStream
 {
+    /// <summary>Underlying token list provided by the <see cref="Tokenizer"/>.</summary>
     private readonly List<Token> _tokens = new();
+    /// <summary>Cursor (index of <see cref="Current"/>) and the saved cursor for <see cref="RollBack"/>.</summary>
     private int _currentPosition = 0, _rollBack = 0;
-    private Token? _lastToken = null;  // Track last valid token for error reporting
+    /// <summary>Last token successfully consumed via <see cref="MoveNext"/>; surfaced in error messages when the next token is missing.</summary>
+    private Token? _lastToken = null;
 
+    /// <summary>Static logger for unknown-token diagnostics inside <see cref="Expect(Constants.TYPE)"/>.</summary>
     private static readonly ILogger<TokenStream> _logger = SharedLogging.Factory.CreateLogger<TokenStream>();
 
     /// <summary>
@@ -135,14 +139,23 @@ public class TokenStream
         /// <summary>Gets the actual token that was found.</summary>
         public Token? FoundToken { get; }
 
+        /// <summary>Creates a parser exception with no positional information.</summary>
+        /// <param name="message">Human-readable error message.</param>
         public StreamerException(string message) : base(message) { }
 
+        /// <summary>Creates a parser exception with explicit line/column information.</summary>
+        /// <param name="message">Human-readable error message.</param>
+        /// <param name="line">1-based line number where the error occurred.</param>
+        /// <param name="col">1-based column number where the error occurred.</param>
         public StreamerException(string message, int line, int col) : base(message)
         {
             Line = line;
             Column = col;
         }
 
+        /// <summary>Creates a parser exception located at the given token.</summary>
+        /// <param name="message">Human-readable error message.</param>
+        /// <param name="token">Token whose <see cref="Token.Line"/> / <see cref="Token.Col"/> identify the error site.</param>
         public StreamerException(string message, Token? token) : base(message)
         {
             FoundToken = token;
@@ -153,6 +166,7 @@ public class TokenStream
             }
         }
 
+        /// <summary>Returns the message prefixed with the parser error tag for log surfaces.</summary>
         public override string ToString() => $"[VHDL Parser Error] {Message}";
 
         /// <summary>

@@ -8,18 +8,27 @@ namespace Parser.Repositories;
 /// It initializes the token stream and delegates parsing of top-level VHDL structures.
 /// </summary>
 public class Parser{
+    /// <summary>Token stream the parser consumes; produced from the <see cref="Tokenizer"/> in the constructor.</summary>
     private TokenStream _streamer;
+    /// <summary>Typed logger used for parsing progress / diagnostics messages.</summary>
     private readonly ILogger<Parser> _logger = SharedLogging.Factory.CreateLogger<Parser>();
-    // The fields below are part of an older parsing implementation and are superseded by the Scopes dictionary.
-    private Dictionary<string, List<string>> _ports = new(), _archDeclarations = new(), 
+    /// <summary>
+    /// Legacy declaration buckets retained from the original monolithic parser.
+    /// The current pipeline (<see cref="ParseV2"/>) populates <see cref="Scopes"/> instead;
+    /// these dictionaries are still written by the legacy <see cref="Parse"/> path for tests.
+    /// </summary>
+    private Dictionary<string, List<string>> _ports = new(), _archDeclarations = new(),
     _generics = new(), _packages = new();
     /// <summary>
     /// Gets the collection of scopes, where each scope contains a set of declared variables, signals, ports, etc.
     /// The key is the scope name (e.g., entity name, architecture name) and the value is the set of variables.
     /// </summary>
     public Dictionary<string, HashSet<Variable>> Scopes { get; private set; } = new();
+    /// <summary>Names of top-level VHDL design units encountered while parsing — populated by the legacy path.</summary>
     private List<string> _entities = new(), _architectures = new();
+    /// <summary>The tokenizer that produced the underlying token list.</summary>
     private Tokenizer _tokenizer;
+    /// <summary>Wall-clock start and end timestamps used to log total parse duration.</summary>
     private DateTime _start = DateTime.Now, _end;
 
     /// <summary>
@@ -117,6 +126,7 @@ public class Parser{
         _end = DateTime.Now;
         _logger.LogInformation($"Total time: {(_end - _start).TotalMilliseconds} ms");
     }
+    /// <summary>Legacy helper: parses a <c>package</c> or <c>package body</c> declaration head, registers it in <c>_packages</c>, then walks the body via <see cref="ParsePackageBody"/>.</summary>
     private void ParsePackage(){
         _streamer.Expect(KEYWORDS);
         string name = _streamer.Current?.Value ?? string.Empty;
@@ -142,6 +152,9 @@ public class Parser{
         _streamer.Expect(IDENTIFIERS); // name
         _streamer.Expect(OPERATORS); // ;
     }
+    /// <summary>Legacy helper: walks the body of a <c>package</c> declaration, recursing for nested function declarations.</summary>
+    /// <param name="PackageName">Name of the enclosing package (currently unused; reserved for scope tracking).</param>
+    /// <param name="IsFirst">True when parsing the primary declaration; false when parsing the package body section.</param>
     private void ParsePackageBody(string PackageName, bool IsFirst){
         if(IsFirst)
             ParseFunction();
@@ -149,6 +162,7 @@ public class Parser{
             ParsePackageBody("", true);
 
     }
+    /// <summary>Parses a <c>library X;</c> declaration followed by zero or more <c>use X.Y.all;</c> clauses.</summary>
     private void ParseLibrariesUsage(){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(IDENTIFIERS);
@@ -159,10 +173,15 @@ public class Parser{
                 _streamer.MoveNext();
         }
     }
+    /// <summary>Consumes a single <c>use ieee.std_logic_1164.all</c>-style qualified-identifier clause.</summary>
     private void ParseUseLibrary(){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(QUALIFIED_IDENTIFIERS);
     }
+    /// <summary>Legacy helper: parses a <c>function</c> declaration header (name, parameter list, return type).</summary>
+    /// <param name="EntityName">Enclosing entity name (or empty when defined at the package level).</param>
+    /// <param name="ArchitectureName">Enclosing architecture name (or empty for entity-/package-level functions).</param>
+    /// <param name="PackageName">Enclosing package name (or empty for non-package functions).</param>
     private void ParseFunction(string EntityName = "", string ArchitectureName = "", string PackageName = ""){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(IDENTIFIERS);
@@ -173,6 +192,8 @@ public class Parser{
         _streamer.Expect(KEYWORDS); // DATATYPE
         _streamer.Expect(OPERATORS); // ;
     }
+    /// <summary>Walks a function's parenthesised parameter list, delegating multi-name groups to <see cref="ParseFunctionPortsWithComas"/>.</summary>
+    /// <param name="FunctionName">Name of the function the parameters belong to (used for diagnostics).</param>
     private void ParseFunctionPortDeclaration(string FunctionName){
         while(_streamer.Current?.Type == IDENTIFIERS){
             ParseFunctionPortsWithComas(FunctionName);
@@ -183,6 +204,8 @@ public class Parser{
             }
         }
     }
+    /// <summary>Consumes a comma-separated list of identifiers in a function's parameter group (e.g. <c>a, b, c : std_logic</c>).</summary>
+    /// <param name="FunctionName">Function the parameter group belongs to (used for diagnostics).</param>
     private void ParseFunctionPortsWithComas(string FunctionName){
         while(_streamer.Current?.Type == IDENTIFIERS){
             /*if(!_archDeclarations.ContainsKey(ArchitectureName))
@@ -197,6 +220,7 @@ public class Parser{
                 break;   
         }
     }
+    /// <summary>Legacy helper: parses an architecture's body, dispatching <c>process</c> blocks vs concurrent statements until the closing <c>end</c>.</summary>
     private void ParseArchitecture(){
         var (EntityName, ArchitectureName) = ParseArchitectureDeclaration();
         while(_streamer.Current?.Value.ToLower() != "end")
@@ -208,6 +232,9 @@ public class Parser{
         _streamer.Expect(IDENTIFIERS);
         _streamer.Expect(OPERATORS);
     }
+    /// <summary>Sequential statement dispatcher (legacy path): handles <c>if</c>/<c>case</c>/<c>for</c>/<c>while</c>/<c>exit</c>/<c>wait</c>/<c>return</c>/<c>null</c> and assignments.</summary>
+    /// <param name="EntityName">Enclosing entity for variable-scope lookups.</param>
+    /// <param name="ArchitectureName">Enclosing architecture (or empty when called from a package context).</param>
     private void ParseDataStructures(string EntityName, string ArchitectureName = ""){
         switch(_streamer.Current?.Value.ToLower()){
             case "if":
@@ -238,6 +265,9 @@ public class Parser{
             break;
         }
     }
+    /// <summary>Parses an <c>if … then … (elsif|else)? … end if;</c> block, recursing for nested elsif chains.</summary>
+    /// <param name="EntityName">Enclosing entity name for scope lookups.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseIfStructure(string EntityName, string ArchitectureName = ""){
         _streamer.Expect(KEYWORDS);
         ParseConditionalOperation(EntityName, ArchitectureName);
@@ -255,6 +285,9 @@ public class Parser{
         _streamer.Expect(KEYWORDS); // if
         _streamer.Expect(OPERATORS); // ;
     }
+    /// <summary>Walks the boolean expression that drives an <c>if</c>/<c>elsif</c> condition, including <c>rising_edge</c>/<c>falling_edge</c> calls and parenthesised sub-expressions.</summary>
+    /// <param name="EntityName">Enclosing entity name for identifier resolution.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseConditionalOperation(string EntityName, string ArchitectureName = ""){
         while(_streamer.Current?.Value != "then"){
             var type = _streamer.Current?.Type ?? UNKNOWN;
@@ -303,6 +336,9 @@ public class Parser{
             } 
         }
     }
+    /// <summary>Parses a <c>case &lt;sig&gt; is when … =&gt; … end case;</c> block.</summary>
+    /// <param name="EntityName">Enclosing entity name for identifier validation.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseCaseStructure(string EntityName, string ArchitectureName = ""){
         _streamer.Expect(KEYWORDS);
         if(!ExistsVariable(_streamer.Current?.Value ?? string.Empty, EntityName, ArchitectureName))
@@ -314,6 +350,9 @@ public class Parser{
         _streamer.Expect(KEYWORDS); // case
         _streamer.Expect(OPERATORS); // ;
     }
+    /// <summary>Walks <c>when &lt;literal | others&gt; =&gt; …</c> branches inside a case statement.</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseCaseCases(string EntityName, string ArchitectureName = ""){
         while(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "when"){
             _streamer.Expect(KEYWORDS);
@@ -338,6 +377,9 @@ public class Parser{
             _generics.ContainsKey(EntityName) &&
             _generics[EntityName].Exists(p => p.Equals(varName))
         );
+    /// <summary>Parses a signal/variable assignment statement (<c>a &lt;= b op c;</c> or <c>a := b;</c>).</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseAsignations(string EntityName, string ArchitectureName = ""){
         while(_streamer.Current?.Type == IDENTIFIERS){
             string varName = _streamer.Current.Value;
@@ -349,6 +391,9 @@ public class Parser{
             _streamer.Expect(OPERATORS); // ; CASE 
         }
     }
+    /// <summary>Parses the right-hand side of an assignment: a chain of operands and operators handled iteratively.</summary>
+    /// <param name="EntityName">Enclosing entity name for identifier resolution.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseOperation(string EntityName, string ArchitectureName = ""){
         while(_streamer.Current?.Value != ";" || _streamer.Current?.Type != PARENTHESIS){
             if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
@@ -385,11 +430,17 @@ public class Parser{
                 break;
         }
     }
+    /// <summary>Consumes a parenthesised sub-expression and recurses into <see cref="ParseOperation"/>.</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseParenthesis(string EntityName, string ArchitectureName = ""){
         _streamer.Expect(PARENTHESIS);
         ParseOperation(EntityName, ArchitectureName);
         _streamer.Expect(PARENTHESIS);
     }
+    /// <summary>Parses a <c>process (sensitivity_list) … begin … end process;</c> block, including local variable declarations.</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseProcess(string EntityName, string ArchitectureName = ""){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(PARENTHESIS);
@@ -401,6 +452,8 @@ public class Parser{
         _streamer.Expect(KEYWORDS); // process
         _streamer.Expect(OPERATORS); // ;
     }
+    /// <summary>Walks a <c>process</c> declarative region: local <c>variable</c> declarations preceding <c>begin</c>.</summary>
+    /// <param name="EntityName">Enclosing entity name (used to scope the variables).</param>
     private void ParseProcessVariables(string EntityName){
         if(_streamer.Current?.Type == PARENTHESIS) return; // NOTHING INTO PARENTEHISIS FROM THE PROCESS
         while(_streamer.Current?.Type == IDENTIFIERS){
@@ -433,10 +486,16 @@ public class Parser{
         _streamer.Expect(KEYWORDS); // begin
         return (EntityName, ArchitectureName);
     }
+    /// <summary>Parses an architecture's declarative region (signal/constant/alias declarations) before the <c>begin</c> keyword.</summary>
+    /// <param name="EntityName">Enclosing entity the architecture refers to.</param>
+    /// <param name="ArchitectureName">Architecture identifier.</param>
     private void ParseArchitectureHeader(string EntityName, string ArchitectureName){
         if(_streamer.Current?.Type == KEYWORDS && _streamer.Current.Value.ToLower() == "begin") return;
         ParseSingleArchitectureAsignations(EntityName, ArchitectureName);
     }
+    /// <summary>Parses a single signal/constant declaration within an architecture's declarative region.</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Architecture identifier the declaration belongs to.</param>
     private void ParseSingleArchitectureAsignations(string EntityName, string ArchitectureName){
         if(_streamer.Current?.Type == KEYWORDS){
             switch(_streamer.Current.Value){
@@ -468,6 +527,8 @@ public class Parser{
             }
         }
     }
+    /// <summary>Parses a single declaration (constant / type / function header) within a package's declarative region.</summary>
+    /// <param name="PackageName">Package identifier the declaration belongs to.</param>
     private void ParseSinglePackageAssignations(string PackageName){
         if(_streamer.Current?.Type == KEYWORDS){
             switch(_streamer.Current.Value){
@@ -499,6 +560,9 @@ public class Parser{
             }
         }
     }
+    /// <summary>Parses an <c>alias</c> declaration in an architecture's declarative region (target name + slice/range over a base signal).</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Architecture identifier.</param>
     private void ParseAliases(string EntityName, string ArchitectureName){
         while(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value == "alias"){
             _streamer.Expect(KEYWORDS);
@@ -507,6 +571,9 @@ public class Parser{
             _streamer.Expect(IDENTIFIERS);
         }
     }
+    /// <summary>Variant of <see cref="ParseSingleArchitectureAsignations"/> kept under the historical (corrected) spelling for callers that already reference it.</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Architecture identifier.</param>
     private void ParseSingleArchitectureAssignations(string EntityName, string ArchitectureName){
         while(_streamer.Current?.Type == KEYWORDS && 
             (
@@ -544,6 +611,9 @@ public class Parser{
             _streamer.Expect(OPERATORS); // ;
         }
     }
+    /// <summary>Walks a comma-separated list of identifiers in an architecture-level declaration (e.g. <c>signal a, b, c : std_logic;</c>).</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Architecture identifier.</param>
     private void ParseArchitectureIdentifiersWithComas(string EntityName, string ArchitectureName){
         while(_streamer.Current?.Type == IDENTIFIERS){
             if(!_archDeclarations.ContainsKey(ArchitectureName))
@@ -558,6 +628,8 @@ public class Parser{
                 break;   
         }
     }
+    /// <summary>Parses an entity's <c>generic (...)</c> declarations, including default-value expressions.</summary>
+    /// <param name="EntityName">Entity the generics belong to.</param>
     private void ParseGenericAssignations(string EntityName){
         while(_streamer.Current?.Type == IDENTIFIERS){
             ParseGenericIdentifiersWithComas(EntityName);
@@ -587,6 +659,8 @@ public class Parser{
             }
         }
     }
+    /// <summary>Walks a comma-separated list of generic identifiers within a single typed group (<c>WIDTH, DEPTH : positive</c>).</summary>
+    /// <param name="EntityName">Entity the generics belong to.</param>
     private void ParseGenericIdentifiersWithComas(string EntityName){
         while(_streamer.Current?.Type == IDENTIFIERS){
             if(!_generics.ContainsKey(EntityName))
@@ -601,6 +675,7 @@ public class Parser{
                 break;   
         }
     }
+    /// <summary>Legacy helper: parses an <c>entity Name is generic(...)? port(...) end Name;</c> declaration.</summary>
     private void ParseEntity(){
         _streamer.Expect(KEYWORDS);
         string EntityName = _streamer.Current?.Value ?? string.Empty;
@@ -623,6 +698,9 @@ public class Parser{
             throw new Exception($"Expecting same identifier for entity closure, found: {_streamer.Current?.Value}, Expected: {EntityName} ");
         _streamer.Expect(OPERATORS);
     }
+    /// <summary>Parses the <c>generic (...)</c> block of an entity declaration.</summary>
+    /// <param name="EntityName">Entity the generic block belongs to.</param>
+    /// <param name="ArchitectureName">Optional architecture context (unused for entity-level generics).</param>
     private void ParseGenericStructure(string EntityName, string ArchitectureName = ""){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(PARENTHESIS);
@@ -634,6 +712,8 @@ public class Parser{
         _streamer.Expect(PARENTHESIS);
         _streamer.Expect(OPERATORS);
     }
+    /// <summary>Walks the <c>port (...)</c> declarations inside an entity, registering each named port in the entity's port list.</summary>
+    /// <param name="EntityName">Entity the ports belong to.</param>
     private void ParsePortDeclaration(string EntityName){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(PARENTHESIS);
@@ -645,6 +725,9 @@ public class Parser{
         _streamer.Expect(PARENTHESIS);
         _streamer.Expect(OPERATORS);
     }
+    /// <summary>Parses a vector type body (<c>std_logic_vector(N downto 0)</c>, etc.) including the optional bound expression.</summary>
+    /// <param name="EntityName">Enclosing entity name.</param>
+    /// <param name="ArchitectureName">Enclosing architecture name (or empty for entity-level declarations).</param>
     private void ParseVectorBody(string EntityName, string ArchitectureName = ""){
         _streamer.Expect(PARENTHESIS);
         if(_streamer.Current?.Type == IDENTIFIERS && ExistsVariable(_streamer.Current.Value, EntityName, ArchitectureName))
@@ -672,12 +755,15 @@ public class Parser{
         }
         _streamer.Expect(PARENTHESIS);
     }
+    /// <summary>Parses a range expression of the form <c>N to M</c> or <c>N downto M</c>.</summary>
     private void ParseRangeBody(){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(LITERALS);
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(LITERALS);
     }
+    /// <summary>Parses a single port declaration (<c>name : in std_logic;</c>) and registers it in the entity's port table.</summary>
+    /// <param name="EntityName">Entity the port belongs to.</param>
     private void ParsePort(string EntityName){
         while(_streamer.Current?.Type == IDENTIFIERS){
             if(!_ports.ContainsKey(EntityName))
@@ -705,6 +791,7 @@ public class Parser{
     /// Parses a VHDL configuration block. This is a basic implementation that skips
     /// over the configuration syntax until 'end ConfigName;'.
     /// </summary>
+    /// <summary>Walks a top-level <c>configuration … end ConfigName;</c> block, including its component bindings.</summary>
     private void ParseConfigurationBlock(){
         _logger.LogInformation("Parsing configuration block");
         _streamer.Expect(KEYWORDS); // configuration
@@ -724,6 +811,7 @@ public class Parser{
     /// Parses the body of a configuration block, handling nested 'for' blocks.
     /// Format: for ArchName | for CompLabel : CompType
     /// </summary>
+    /// <summary>Walks the body of a <c>configuration</c> block, accepting <c>for CompLabel : CompType use entity work.X(Arch);</c> binding clauses.</summary>
     private void ParseConfigurationBody(){
         while(_streamer.Current?.Value.ToLower() != "end"){
             if(_streamer.Current?.Value.ToLower() == "for"){

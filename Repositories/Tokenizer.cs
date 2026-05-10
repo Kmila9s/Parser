@@ -9,17 +9,28 @@ namespace Parser.Repositories;
 /// Responsible for reading VHDL source code (from a file or string) and converting it into a sequence of tokens.
 /// </summary>
 public class Tokenizer{
+    /// <summary>Mutex reserved for future thread-safe usage of the tokenizer instance.</summary>
     private object _lock = new();
     /// <summary>
     /// Gets the last error message that occurred during tokenization.
     /// </summary>
     public string LastError { get; private set; }
+    /// <summary>Path of the VHDL file currently being tokenized; empty when tokenizing a raw string.</summary>
     private string _filePath = string.Empty;
+    /// <summary>Per-line buckets of raw token strings paired with the originating 0-based line index.</summary>
     private List<(List<string>, int)> _tokens;
+    /// <summary>Final classified token list, populated by <see cref="Evaluate"/>.</summary>
     private List<Token> _typeDictionary;
+    /// <summary>
+    /// Compiled token-classification regexes, one per <see cref="Constants.TYPE"/>.
+    /// Order of evaluation in <see cref="Evaluate"/> is significant — operators
+    /// and parenthesis are matched before identifiers so symbolic tokens are
+    /// not swallowed as names.
+    /// </summary>
     private readonly Regex _keywordsRegex, _operatorsRegex, _parenthesisRegex,
     _identifiersRegex, _literalsRegex, _qualifiedIdentifiersRegex, _separatorsRegex,
     _functionsRegex, _timeRegex, _vectorAttributes;
+    /// <summary>Current 0-based line index being processed; advanced by <see cref="ReadFile"/> / <see cref="ReadString"/>.</summary>
     private int _currentLine = 0;
 
     /// <summary>
