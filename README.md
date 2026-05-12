@@ -829,6 +829,223 @@ This version includes significant improvements to the parser's handling of compl
 
 ---
 
+## 9. Audit diagrams (2026-05-09)
+
+These diagrams were rewritten or created during the cross-module audit because the
+existing TT1 diagrams modeled a single-state-machine `Parse()` that was replaced by
+the explicit `ParseV2()` delegation (EntityParser / ArchitectureParser /
+PackageParser). They live also in `Documentacion/TT1/diagrams/`.
+
+### `fig_4_4_dominio_analisis_codigo` — Domain model: code analysis (rewritten)
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ArchivoHDL {
+        +String nombre
+        +String contenido
+    }
+    class Scope {
+        +String nombre
+        +TipoScope tipo
+    }
+    class Variable {
+        +String nombre
+        +Tipo tipo
+        +Object valor
+        +Int tamanio
+        +PortType direccion
+    }
+    class Diagnostico {
+        +Severidad severidad
+        +Int linea
+        +Int columnaInicio
+        +Int columnaFin
+        +String codigo
+        +String mensaje
+    }
+
+    ArchivoHDL "1" --> "0..*" Scope : produce
+    Scope "1" --> "0..*" Variable : agrupa
+    ArchivoHDL "1" --> "0..*" Diagnostico : genera
+    Variable "0..*" ..> "0..*" Variable : referencia (records, vectores)
+```
+
+### `fig_5_8_1_seq_validacion_vhdl` — Validation sequence (rewritten)
+
+```mermaid
+sequenceDiagram
+    actor E as Estudiante
+    participant UI as ButtonCollapse
+    participant Ed as Editor.razor
+    participant PB as ProgramBuilder
+    participant Tk as Tokenizer
+    participant TS as TokenStream
+    participant Pa as Parser
+
+    E->>UI: Presiona "Validar programa"
+    UI->>Ed: OnBuildRequested
+    Ed->>PB: Build(ProjectFile)
+    PB->>PB: Validar extension .vhd/.vhdl
+    PB->>Pa: new Parser(filePath)
+    Pa->>Tk: ReadFile + TokenizeLine + Evaluate
+    Tk-->>Pa: List~Token~
+    Pa->>TS: new TokenStream(tokens)
+    PB->>Pa: ParseV2()
+    loop Mientras quedan tokens
+        Pa->>TS: Current / MoveNext
+        alt Token = entity
+            Pa->>Pa: EntityParser.ParseDeclaration
+        else Token = architecture
+            Pa->>Pa: ArchitectureParser.ParseDeclaration
+        else Token = package
+            Pa->>Pa: PackageParser.ParseDeclaration
+        else Token = library / use
+            Pa->>Pa: ParseLibrariesUsage
+        else Token = configuration
+            Pa->>Pa: ParseConfigurationBlock
+        end
+    end
+    Pa-->>PB: Scopes (Dictionary<string, HashSet~Variable~>)
+    PB-->>UI: OnBuildProgressChanged(100%)
+    UI-->>E: Muestra entidades y recursos detectados
+```
+
+### `fig_5_11_2_1_act_validacion_prep` — Preparation activity (rewritten)
+
+```mermaid
+flowchart TD
+    A([Inicio: Validar programa]) --> B{Extension .vhd o .vhdl?}
+    B -->|No| C([Fin: archivo rechazado])
+    B -->|Si| D[Crear instancia de Parser con ruta del archivo]
+    D --> E[Tokenizer: ReadFile y eliminar comentarios]
+    E --> F[TokenizeLine: clasificar tokens por regex]
+    F --> G[Evaluate: asignar TYPE a cada token]
+    G --> H[Construir TokenStream sobre la lista de tokens]
+    H --> I([Continua en Figura 5.11.2.2])
+```
+
+### `fig_5_11_2_2_act_validacion_recorrido` — Token-driven traversal (rewritten)
+
+```mermaid
+flowchart TD
+    A([TokenStream listo]) --> B[ParseV2: leer Current]
+    B --> C{Tipo de token?}
+    C -->|entity| D[EntityParser: nombre, generic, ports]
+    C -->|architecture| E[ArchitectureParser: nombre, entidad, header]
+    C -->|package| F[PackageParser: constantes, funciones, tipos]
+    C -->|library / use| G[ParseLibrariesUsage]
+    C -->|configuration| H[ParseConfigurationBlock]
+    C -->|otro| B
+    D --> I[Registrar Variables en Scopes]
+    E --> I
+    F --> I
+    G --> B
+    H --> I
+    I --> J{EndStream?}
+    J -->|No| B
+    J -->|Si| K{Hubo entidades / packages?}
+    K -->|No| L([Fin: error, sin unidades de diseno])
+    K -->|Si| M([Fin: Scopes disponibles + Diagnosticos])
+```
+
+### `fig_5_11_6_act_tokenizer_pipeline` — Tokenizer pipeline (new)
+
+```mermaid
+flowchart TD
+    A([Inicio: Tokenizer.ReadFile]) --> B[Leer archivo VHDL crudo]
+    B --> C[Eliminar lineas que comienzan con --]
+    C --> D[Por cada linea: TokenizeLine]
+    D --> E[Aplicar regex a cada fragmento]
+    E --> F{Patron coincide?}
+    F -->|KEYWORDS| G[Token.Type = KEYWORDS]
+    F -->|OPERATORS| H[Token.Type = OPERATORS]
+    F -->|LITERALS| I[Token.Type = LITERALS]
+    F -->|IDENTIFIERS| J[Token.Type = IDENTIFIERS]
+    F -->|TIME / VECTORS_ATTRIBUTES /<br/>FUNCTIONS / SEPARATORS /<br/>PARENTHESIS| K[Token.Type = otro]
+    F -->|Sin coincidencia| L[Token.Type = UNKNOWN<br/>+ Diagnostico critico]
+    G --> M[Adjuntar Line, Col]
+    H --> M
+    I --> M
+    J --> M
+    K --> M
+    L --> M
+    M --> N{Quedan lineas?}
+    N -->|Si| D
+    N -->|No| O([Fin: List~Token~ + Diagnosticos])
+```
+
+### `fig_5_11_7_act_configuration_block` — Configuration block parsing (new)
+
+```mermaid
+flowchart TD
+    A([Token = configuration]) --> B[ParseConfigurationBlock: leer nombre y entidad objetivo]
+    B --> C[Expect of, leer entityName]
+    C --> D[Expect is]
+    D --> E[ParseConfigurationBody]
+    E --> F{Siguiente token?}
+    F -->|for label : compType use| G[Registrar binding<br/>label -> entity work.X arch]
+    F -->|end for| H[Cerrar bloque interno]
+    F -->|end configuration| I[Validar nombre coincide]
+    F -->|otro| E
+    G --> E
+    H --> E
+    I --> J[Crear scope configuration_name]
+    J --> K[Registrar bindings como Variables<br/>en HashSet del scope]
+    K --> L([Fin: scope listo en Scopes])
+```
+
+### `fig_5_11_8_act_generate_scope` — Generate statement scope lifecycle (new)
+
+```mermaid
+flowchart TD
+    A([Statement: for label in rango generate]) --> B[ArchitectureParser.ParseGenerateStatement]
+    B --> C[Crear scope hijo<br/>arch_label_generate]
+    C --> D[Registrar variable iteradora<br/>en el scope hijo]
+    D --> E[ParseSequentialBody hasta end generate]
+    E --> F{Statement tipo?}
+    F -->|signal_assignment| G[Resolver nombres en scope hijo<br/>+ scope padre]
+    F -->|process| H[Procesar Process anidado<br/>SyntentizeSensitiveList]
+    F -->|component_instantiation| I[Resolver entity ref con<br/>iterador como generic]
+    F -->|generate anidado| J[Recursion: nuevo scope hijo]
+    G --> E
+    H --> E
+    I --> E
+    J --> E
+    F -->|end generate| K[Validar nombre = label]
+    K --> L[Cerrar scope hijo,<br/>iterador liberado]
+    L --> M([Fin: bindings disponibles para Interpreter])
+```
+
+### `fig_5_11_9_act_record_types` — Record types resolution (new)
+
+```mermaid
+flowchart TD
+    A([Declaracion: type T is record ...]) --> B[ArchitectureAssignationParser detecta record]
+    B --> C[Crear Variable typeDef con<br/>CustomTypeName=T y RecordFields={}]
+    C --> D[Por cada campo del record]
+    D --> E[Leer nombre del campo + tipo]
+    E --> F[RecordFields[name] = default por tipo]
+    F --> G{Mas campos?}
+    G -->|Si| D
+    G -->|No| H[Registrar tipo T en scope]
+    H --> I([Tipo disponible para declaraciones])
+
+    J([Asignacion: signal x : T := ...]) --> K[Crear Variable x con<br/>CustomTypeName=T]
+    K --> L[Copiar RecordFields del typeDef]
+    L --> M([Variable lista en scope])
+
+    N([Acceso: x.field <= value]) --> O[DataStructuresParser: detectar punto]
+    O --> P[Resolver x en Scopes]
+    P --> Q{Existe x.RecordFields[field]?}
+    Q -->|No| R[Diagnostico: campo desconocido]
+    Q -->|Si| S[Generar asignacion sobre<br/>RecordFields[field]]
+    S --> T([Operacion lista para Interpreter])
+```
+
+---
+
 ## Changelog
 
 ### Version 1.14.0 (2026-04-19)
