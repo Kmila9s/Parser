@@ -93,5 +93,59 @@ class Program
         int passed = results.Count(r => r.Contains("PASSED"));
         int total = results.Count;
         Console.WriteLine($"\nTotal: {passed}/{total} tests passed");
+
+        // ── Negative tests ──────────────────────────────────────────────
+        // Fixtures that SHOULD fail to parse. A "pass" here means the
+        // Parser surfaced the expected ParserException; a "fail" means
+        // the broken VHDL slipped through and the strictness fix has
+        // regressed. Each entry carries a substring that the exception
+        // message should contain so we don't accept arbitrary failures.
+        var negativeTests = new (string File, string MustContain)[]
+        {
+            ("test_negative_unknown_type.vhdl",      "STDLOGIC"),
+            ("test_negative_missing_port_semi.vhdl", "Missing ';'"),
+            ("test_negative_garbage_in_body.vhdl",   "Unexpected token '$'")
+        };
+
+        var negResults = new List<string>();
+        foreach (var (file, mustContain) in negativeTests)
+        {
+            try
+            {
+                Console.SetOut(TextWriter.Null);
+                Repositories.Parser parser = new(file);
+                parser.ParseV2();
+                Console.SetOut(originalOut);
+                // Parser DID NOT throw — that's a regression in strictness.
+                negResults.Add($"✗ {file} - REGRESSION: parser accepted invalid VHDL");
+            }
+            catch (Exception ex) when (ex is ParserException || ex is TokenStream.StreamerException)
+            {
+                // Both exception types signal a parse rejection. StreamerException
+                // is what TokenStream.Expect() throws on type mismatch; ParserException
+                // is what higher-level parsers throw for semantic problems. Treat
+                // either as a valid rejection so the harness doesn't care which
+                // layer caught the bad input.
+                Console.SetOut(originalOut);
+                if (ex.Message.Contains(mustContain, StringComparison.OrdinalIgnoreCase))
+                    negResults.Add($"✓ {file} - REJECTED ({mustContain})");
+                else
+                    negResults.Add($"✗ {file} - WRONG MESSAGE: \"{ex.Message}\" (expected to contain \"{mustContain}\")");
+            }
+            catch (Exception ex)
+            {
+                Console.SetOut(originalOut);
+                negResults.Add($"✗ {file} - WRONG EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        Console.WriteLine("\n========== Negative (must-fail) Results ==========\n");
+        foreach (var r in negResults) Console.WriteLine(r);
+        Console.WriteLine("\n==================================================");
+        int negPassed = negResults.Count(r => r.Contains("REJECTED"));
+        Console.WriteLine($"\nNegative: {negPassed}/{negResults.Count} expected rejections");
+
+        // Overall exit: non-zero when any positive failed OR any negative leaked through.
+        Environment.Exit((passed == total && negPassed == negResults.Count) ? 0 : 1);
     }
 }

@@ -125,13 +125,94 @@ public class Constants{
                 return DATATYPES.BIT;
             case "boolean":
                 return DATATYPES.BOOLEAN;
-            case "INTEGER":
+            case "integer":
                 return DATATYPES.INTEGER;
-            case "NATURAL":
+            case "natural":
                 return DATATYPES.NATURAL;
             default:
                 return DATATYPES.UNKNOWN;
         }
+    }
+
+    /// <summary>
+    /// Canonical names of the standard VHDL types the port parser recognises.
+    /// Used by <see cref="FindTypoSuggestion"/> to surface "did you mean …"
+    /// when the user writes a near-match like <c>STDLOGIC</c> (missing the
+    /// underscore) or <c>STD_LGIC</c> (missing a letter).
+    /// </summary>
+    /// <remarks>
+    /// Comparison is case-insensitive — VHDL identifiers are case-folded.
+    /// The set is intentionally broader than <see cref="GetDatatype"/>'s
+    /// switch so user typos for types Kmila doesn't yet model internally
+    /// (e.g. <c>unsigned</c>, <c>signed</c>) still get a helpful hint.
+    /// </remarks>
+    public static readonly HashSet<string> KNOWN_TYPE_NAMES = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "std_logic", "std_logic_vector",
+        "bit", "bit_vector",
+        "boolean", "integer", "natural", "positive",
+        "character", "string",
+        "unsigned", "signed",
+        "real", "time"
+    };
+
+    /// <summary>
+    /// Returns the closest known VHDL type name if <paramref name="unknown"/>
+    /// is within Levenshtein-distance 2 of one — otherwise null. The caller
+    /// uses this to decide whether to surface a "did you mean" hint
+    /// (likely typo) or quietly accept the token as a user-defined type.
+    /// </summary>
+    /// <param name="unknown">The identifier captured in source.</param>
+    /// <returns>The suggested canonical type, or null when no close match exists.</returns>
+    public static string? FindTypoSuggestion(string unknown)
+    {
+        if (string.IsNullOrEmpty(unknown)) return null;
+        if (KNOWN_TYPE_NAMES.Contains(unknown)) return null;
+
+        var needle = unknown.ToLowerInvariant();
+        string? best = null;
+        int bestDist = 3; // strictly less than 3 → distance ≤ 2 → typo
+        foreach (var name in KNOWN_TYPE_NAMES)
+        {
+            int d = LevenshteinDistance(needle, name);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = name;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Classic O(n·m) Levenshtein edit distance with a rolling two-row
+    /// buffer. Used by <see cref="FindTypoSuggestion"/>; kept internal so
+    /// callers don't reach for it directly — there are better libraries
+    /// when distance-on-large-strings becomes a hot path.
+    /// </summary>
+    private static int LevenshteinDistance(string a, string b)
+    {
+        if (a == b) return 0;
+        if (string.IsNullOrEmpty(a)) return b?.Length ?? 0;
+        if (string.IsNullOrEmpty(b)) return a.Length;
+
+        int la = a.Length, lb = b.Length;
+        var prev = new int[lb + 1];
+        var curr = new int[lb + 1];
+        for (int j = 0; j <= lb; j++) prev[j] = j;
+        for (int i = 1; i <= la; i++)
+        {
+            curr[0] = i;
+            for (int j = 1; j <= lb; j++)
+            {
+                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                curr[j] = Math.Min(
+                    Math.Min(curr[j - 1] + 1, prev[j] + 1),
+                    prev[j - 1] + cost);
+            }
+            (prev, curr) = (curr, prev);
+        }
+        return prev[lb];
     }
     /// <summary>
     /// A list of special characters used for tokenization.

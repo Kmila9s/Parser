@@ -1082,4 +1082,37 @@ Memory: `Tokenizer.Evaluate()` now releases the raw `_tokens` buffer once `_type
 Full release notes: [`Documentacion/CHANGELOG_v1.15.md`](../Documentacion/CHANGELOG_v1.15.md).
 
 ---
+
+## Strictness pass (2026-05-17)
+
+`PortsParser` now rejects two classes of port-declaration sloppiness that previously slipped through silently. Both were filed by Daniel as part of the ripple-counter "Visible Wave" repro that built clean despite obvious typos — see [`Documentacion/CHANGELOG_concepts_module_2026-05-17.md`](../Documentacion/CHANGELOG_concepts_module_2026-05-17.md) addendum and the memory entry `project_vhdl_parser_too_lenient.md`.
+
+### Unknown port type → "did you mean …" error
+
+When the type identifier in a port declaration is captured as an IDENTIFIER (not a recognised KEYWORD) AND its case-folded value is within Levenshtein-distance 2 of any canonical VHDL type name in `Constants.KNOWN_TYPE_NAMES`, the parser now throws a `ParserException` with a "Did you mean '<canonical>'?" hint. Catches the common slips:
+
+| Source token | Canonical | Distance | Behaviour |
+|---|---|---|---|
+| `STDLOGIC` | `std_logic` | 1 (missing `_`) | **rejected** |
+| `STD_LGIC` | `std_logic` | 1 (missing `O`) | **rejected** |
+| `coefficient_array_t` | none close | > 2 | accepted as user-defined type |
+
+The Levenshtein helper lives at `Constants.cs:LevenshteinDistance` (private, rolling two-row buffer). `Constants.FindTypoSuggestion(string)` is the public entry — pass the source identifier, get back the closest canonical name or `null` when the identifier looks legitimate.
+
+### Missing `;` between ports
+
+The `Parse()` loop now detects the case where a port declaration finishes and the next token is another IDENTIFIER (rather than `;` or `)`). It surfaces a `ParserException` reading "Missing ';' before port '<name>' in port declaration list." with the offending token's line + column — instead of letting the parse cascade into a confusing "expected )" message far below the actual problem.
+
+### Negative test suite
+
+`Program.cs` gained a second test pass for "must-fail" fixtures. Each entry is a `(filename, mustContainSubstring)` pair; a PASS means the parser surfaced the expected exception and the message contained the required substring. The runner's exit code is non-zero unless **both** the 40 positive AND every negative fixture pass — so regressions can't silently re-loosen the strictness.
+
+Current negative coverage (Parser root, alongside the existing `test1..test40.vhdl`):
+
+- `test_negative_unknown_type.vhdl` — typo `STDLOGIC` in a port type.
+- `test_negative_missing_port_semi.vhdl` — port lacks `;` before the next port.
+
+Adding more is one entry in the `negativeTests` array + a `test_negative_*.vhdl` file at the Parser root.
+
+---
 *Last updated: 2026-05-02*

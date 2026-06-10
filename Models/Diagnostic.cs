@@ -55,4 +55,39 @@ public sealed class Diagnostic
         Code        = ex.ErrorCode?.ToString() ?? "PARSE-ERROR",
         Message     = ex.Message
     };
+
+    /// <summary>
+    /// Source-aware overload. The tokenizer reports <c>Token.Col</c> as a
+    /// per-line token index, not a character offset, so the bare
+    /// <see cref="FromException(ParserException)"/> can land Monaco markers
+    /// on whitespace or unrelated tokens. When the full file content is
+    /// available, this overload locates <see cref="ParserException.Context"/>
+    /// inside the offending source line and rewrites StartColumn / EndColumn
+    /// to the real character range. Falls back to the bare overload when
+    /// content is missing, the line is out of range, or the context value
+    /// can't be found.
+    /// </summary>
+    public static Diagnostic FromException(ParserException ex, string? fileContent)
+    {
+        var basic = FromException(ex);
+        if (string.IsNullOrEmpty(fileContent) || string.IsNullOrEmpty(ex.Context) || ex.Line <= 0)
+            return basic;
+
+        var lines = fileContent.Replace("\r\n", "\n").Split('\n');
+        if (ex.Line - 1 >= lines.Length) return basic;
+
+        var src = lines[ex.Line - 1];
+        int idx = src.IndexOf(ex.Context, StringComparison.Ordinal);
+        if (idx < 0) return basic;
+
+        return new Diagnostic
+        {
+            Severity    = basic.Severity,
+            Line        = basic.Line,
+            StartColumn = idx + 1,
+            EndColumn   = idx + 1 + ex.Context!.Length,
+            Code        = basic.Code,
+            Message     = basic.Message
+        };
+    }
 }

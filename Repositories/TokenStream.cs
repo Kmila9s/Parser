@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Parser.Models;
 
 namespace Parser.Repositories;
@@ -15,9 +14,6 @@ public class TokenStream
     private int _currentPosition = 0, _rollBack = 0;
     /// <summary>Last token successfully consumed via <see cref="MoveNext"/>; surfaced in error messages when the next token is missing.</summary>
     private Token? _lastToken = null;
-
-    /// <summary>Static logger for unknown-token diagnostics inside <see cref="Expect(Constants.TYPE)"/>.</summary>
-    private static readonly ILogger<TokenStream> _logger = SharedLogging.Factory.CreateLogger<TokenStream>();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TokenStream"/> class.
@@ -91,11 +87,9 @@ public class TokenStream
         if (!Match(ExpectedType))
         {
             if (Current?.Type == Constants.TYPE.UNKNOWN)
-            {
-                _logger.LogCritical($"Unknown token please check it out, skipping for simplicity: {Current?.Value}");
-                MoveNext();
-                return;
-            }
+                throw new ParserException(
+                    $"Unexpected token '{Current.Value}' — not a valid VHDL identifier, keyword, operator, or literal",
+                    Current);
 
             throw StreamerException.UnexpectedToken(ExpectedType, Current, _lastToken);
         }
@@ -111,11 +105,9 @@ public class TokenStream
         if (!Match(ExpectedType))
         {
             if (Current?.Type == Constants.TYPE.UNKNOWN)
-            {
-                _logger.LogCritical($"Unknown token please check it out, skipping for simplicity: {Current?.Value}");
-                MoveNext();
-                return;
-            }
+                throw new ParserException(
+                    $"Unexpected token '{Current.Value}' while parsing {context} — not a valid VHDL identifier, keyword, operator, or literal",
+                    Current);
 
             throw StreamerException.UnexpectedToken(ExpectedType, Current, _lastToken, context);
         }
