@@ -67,7 +67,7 @@ The parser is built with a modular, object-oriented design where different class
 
 *   **`Token.cs`**: Represents a single lexical unit from the source code. It contains its `Value` (e.g., "entity", "clk"), `Type` (e.g., `KEYWORDS`), and location (`Line`, `Col`).
 
-*   **`Variable.cs`**: A crucial class that represents any named object in VHDL (a signal, port, variable, or constant). It stores its `Name`, data `Type`, `Value`, and `Size`. It also includes an `OnValueChange` event to notify the simulation engine of updates.
+*   **`Variable.cs`**: A crucial class that represents any named object in VHDL (a signal, port, variable, or constant). It stores its `Name`, data `Type`, `Value`, and `Size`. It also includes an `OnValueChange` event to notify the simulation engine of updates. **2026-06-22 addition:** `ElementSize` + `ArrayLength` carry the per-element width and slot count for array-typed signals (e.g. `signal mem : rom_t` where `rom_t = array(0 to 7) of std_logic_vector(7 downto 0)` lands as `ElementSize=8`, `ArrayLength=8`). `DeferredIndex` / `DynamicIndex` consult these to slice element-wise on `mem(N)` reads — without them the indexer fell back to per-bit reads and returned garbage. **Watch out:** `Variable` overloads `operator==` to compare names (not references), so always use `is null` / `is not null` for reference checks.
 
 *   **`Constants.cs`**: A static class that centralizes all constants used by the parser, including:
     *   `enum TYPE`: Defines all possible token types.
@@ -415,6 +415,8 @@ classDiagram
             +IsStub : bool
             +CustomTypeName : string?
             +RecordFields : Dictionary?
+            +ElementSize : int
+            +ArrayLength : int
             +OnValueChange : event
         }
         class Constants {

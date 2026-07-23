@@ -162,12 +162,22 @@ public class Constants{
     /// uses this to decide whether to surface a "did you mean" hint
     /// (likely typo) or quietly accept the token as a user-defined type.
     /// </summary>
+    /// <remarks>
+    /// The candidate set is the union of <see cref="KNOWN_TYPE_NAMES"/>
+    /// (canonical VHDL + IEEE primitives) and
+    /// <see cref="Parser.Services.UserTypeRegistry"/> (types the host has
+    /// resolved from <c>use library.package.all</c> clauses through
+    /// <c>LibraryCompiler</c>). Hosts that don't populate the registry
+    /// effectively fall back to canonical-only suggestions, which is the
+    /// historical behaviour.
+    /// </remarks>
     /// <param name="unknown">The identifier captured in source.</param>
     /// <returns>The suggested canonical type, or null when no close match exists.</returns>
     public static string? FindTypoSuggestion(string unknown)
     {
         if (string.IsNullOrEmpty(unknown)) return null;
         if (KNOWN_TYPE_NAMES.Contains(unknown)) return null;
+        if (Parser.Services.UserTypeRegistry.Instance.IsKnown(unknown)) return null;
 
         var needle = unknown.ToLowerInvariant();
         string? best = null;
@@ -175,11 +185,16 @@ public class Constants{
         foreach (var name in KNOWN_TYPE_NAMES)
         {
             int d = LevenshteinDistance(needle, name);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                best = name;
-            }
+            if (d < bestDist) { bestDist = d; best = name; }
+        }
+        // User-imported library types live alongside the canonical ones in
+        // the suggestion space. We compare against the original casing the
+        // library declared so the message reads back the user's chosen
+        // identifier rather than a forced lowercase form.
+        foreach (var name in Parser.Services.UserTypeRegistry.Instance.All)
+        {
+            int d = LevenshteinDistance(needle, name.ToLowerInvariant());
+            if (d < bestDist) { bestDist = d; best = name; }
         }
         return best;
     }

@@ -828,16 +828,22 @@ public class ArchitectureParser : IParseStructures {
             componentName = _streamer.Current?.Value ?? string.Empty;
             _streamer.Expect(IDENTIFIERS); // component name
         }
-        // Parse optional generic map
-        if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "generic"){
-            _streamer.Expect(KEYWORDS); // generic
-            _streamer.Expect(KEYWORDS); // map
+        // Parse optional generic map / port map. Value-based lookahead — the
+        // tokenizer sometimes classifies the follow-up `generic`/`port`/`map`
+        // after `entity work.X` as IDENTIFIERS rather than KEYWORDS depending
+        // on context (audit F-G-05, 2026-07-09). Match on value only and use
+        // MoveNext() so both classifications resolve.
+        static bool IsWord(Token? tok, string word) =>
+            tok != null && string.Equals(tok.Value, word, StringComparison.OrdinalIgnoreCase);
+
+        if (IsWord(_streamer.Current, "generic")) {
+            _streamer.MoveNext(); // 'generic'
+            if (IsWord(_streamer.Current, "map")) _streamer.MoveNext(); // 'map'
             ParsePortMapContents();
         }
-        // Parse port map
-        if(_streamer.Current?.Type == KEYWORDS && _streamer.Current?.Value.ToLower() == "port"){
-            _streamer.Expect(KEYWORDS); // port
-            _streamer.Expect(KEYWORDS); // map
+        if (IsWord(_streamer.Current, "port")) {
+            _streamer.MoveNext(); // 'port'
+            if (IsWord(_streamer.Current, "map")) _streamer.MoveNext(); // 'map'
             ParsePortMapContents();
         }
         _streamer.Expect(OPERATORS); // ;

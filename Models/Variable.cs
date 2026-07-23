@@ -7,10 +7,28 @@ namespace Parser.Models;
 /// Represents a VHDL variable, signal, constant, or port.
 /// </summary>
 public class Variable {
+    private string _name = string.Empty;
+    private string _nameLower = string.Empty;
     /// <summary>
     /// Gets or sets the name of the variable.
     /// </summary>
-    public string Name { get; set; } = string.Empty;
+    /// <remarks>
+    /// F-G-08 pass 5 (2026-07-22): backing field + <c>_nameLower</c> cache.
+    /// Pre-pass-5 the case-insensitive <see cref="Equals"/> /
+    /// <see cref="GetHashCode"/> allocated a fresh <c>ToLower()</c> string per
+    /// call. On the elaborated capstone every <c>HashSet&lt;Variable&gt;.Contains</c>
+    /// (thousands per delta cycle) took 2–3 allocations. Cache is refreshed
+    /// on every <c>Name</c> setter call so late renames stay coherent.
+    /// </remarks>
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            _name = value ?? string.Empty;
+            _nameLower = _name.ToLowerInvariant();
+        }
+    }
     /// <summary>
     /// Gets or sets whether this is a stub variable (created for undeclared identifiers).
     /// </summary>
@@ -29,6 +47,23 @@ public class Variable {
     /// v0.15.0: Added to support record types.
     /// </summary>
     public Dictionary<string, object>? RecordFields { get; set; } = null;
+
+    /// <summary>
+    /// For variables declared with a user array type (e.g. `signal mem : rom_t`
+    /// where `rom_t` is `array(0 to 7) of std_logic_vector(7 downto 0)`), the
+    /// per-element width in bits. Stays at 0 for scalar / plain vector signals,
+    /// which means "treat indexed access as single-bit" (the legacy path).
+    /// When set, indexed reads via DynamicIndex / DeferredIndex extract an
+    /// ElementSize-wide slice instead of a single character, matching VHDL
+    /// element-access semantics for arrays of vectors.
+    /// </summary>
+    public int ElementSize { get; set; } = 0;
+
+    /// <summary>
+    /// Number of elements in the array (e.g. 8 for `array(0 to 7) of ...`).
+    /// 0 for non-array variables.
+    /// </summary>
+    public int ArrayLength { get; set; } = 0;
     private DATATYPES _dataType = DATATYPES.UNKNOWN;
     /// <summary>
     /// Gets or sets the data type of the variable.
@@ -183,9 +218,25 @@ public class Variable {
                 case DATATYPES.STD_LOGIC:
                 case DATATYPES.STD_LOGIC_VECTOR:
                     if (value == null)
+                    {
                         transformed = "U";
+                    }
+                    // F-G-08 (2026-07-15): fast path — engine-driven writes
+                    // land as already-clean strings. Avoid two allocations
+                    // (Replace × 2) per assignment when the input has no
+                    // quotes to strip. Falls back to the general path only
+                    // for source-parsed literals like `"1010"` or `'1'`.
+                    else if (value is string s)
+                    {
+                        if (s.Length == 0 || (s.IndexOf('"') < 0 && s.IndexOf('\'') < 0))
+                            transformed = s;
+                        else
+                            transformed = s.Replace("\"", "").Replace("'", "");
+                    }
                     else
+                    {
                         transformed = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
+                    }
                     break;
                 default:
                     transformed = value;
@@ -202,6 +253,14 @@ public class Variable {
     /// Gets or sets whether this variable represents a port in an entity declaration.
     /// </summary>
     public bool IsPort { get; set; } = false;
+    /// <summary>
+    /// True when this row came from a <c>constant</c> declaration (architecture-
+    /// local or package). Constants share storage with signals but must be
+    /// excluded from VCD dumps because they never change over sim-time and
+    /// waveform viewers should not carry them as $var entries.
+    /// Audit F-G-03 (2026-07-09).
+    /// </summary>
+    public bool IsConstant { get; set; } = false;
     /// <summary>
     /// Gets or sets the direction of the port (IN, OUT, INOUT, BUFFER).
     /// Only relevant when <see cref="IsPort"/> is true.
@@ -243,9 +302,9 @@ public class Variable {
     public override bool Equals(object? obj)
     {
         if(obj is Variable var)
-            return var.Name.ToLower() == this.Name.ToLower();
+            return var._nameLower == this._nameLower;
         if(obj is string varName)
-            return varName.ToLower() == this.Name.ToLower();
+            return varName.ToLowerInvariant() == this._nameLower;
         return false;
     }
     /// <summary>
@@ -255,12 +314,12 @@ public class Variable {
     /// <returns>A hash code for the current object.</returns>
     public override int GetHashCode()
     {
-        return this.Name?.ToLower().GetHashCode() ?? 0;
+        return this._nameLower.GetHashCode();
     }
     /// <summary>Case-insensitive equality: string == Variable.</summary>
-    public static bool operator ==(string p, Variable var) => var?.Name != null && p?.ToLower() == var.Name.ToLower();
+    public static bool operator ==(string p, Variable var) => var?._nameLower != null && p?.ToLowerInvariant() == var._nameLower;
     /// <summary>Case-insensitive equality: Variable == string.</summary>
-    public static bool operator ==(Variable var, string p) => var?.Name != null && p?.ToLower() == var.Name.ToLower();
+    public static bool operator ==(Variable var, string p) => var?._nameLower != null && p?.ToLowerInvariant() == var._nameLower;
     /// <summary>Equality comparison between two Variable instances by name.</summary>
     public static bool operator ==(Variable var, Variable comp) => var?.Name == comp?.Name;
     /// <summary>Inequality comparison between two Variable instances by name.</summary>
