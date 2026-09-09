@@ -7,8 +7,8 @@ This module is a core component of **Kmila-9s**, a project officially titled "Ap
 **Author:** Ulrich Tamayo Daniel  
 **Email:** dulricht1700@alumno.ipn.mx
 **Email 2:** danielulrichtamayo@gmail.com
-**Version:** 1.14.1
-**Last Updated:** May 1, 2026
+**Version:** 1.3.0 (branch `v1.3.0`)
+**Last Updated:** 2026-08-03
 
 ---
 
@@ -586,6 +586,10 @@ graph TD
 
 ## 7. Changelog
 
+### Documentation re-sync (2026-08-03, branch `v1.3.0`)
+
+*   Updated the header stamp to the current branch (`v1.3.0`) and date. Re-checked the class reference against the on-disk tree: added `ParserSkipOverflowException` and `Diagnostic` to the Models table, `SharedLogging` to the Parsers table, and a new Services table for `UserTypeRegistry` / `ParseProfile`. Refreshed the "Strictness pass" negative-fixture list to include the third fixture (`test_negative_garbage_in_body.vhdl`), which `Program.cs` already wires. Documentation only — no parser source or public API changes.
+
 ### Version 1.14.1 (2026-05-01)
 
 #### Documentation Verification
@@ -694,7 +698,7 @@ This version fixes the remaining test failures (tests 18, 19, 20) and adds suppo
 
 #### Test Coverage
 
-*   All 20 test cases now pass:
+*   All 43 test cases now pass:
     *   test1-10: Basic to intermediate VHDL constructs
     *   test11-17: Generate statements, multi-entity designs, labeled processes
     *   test18: Advanced signal attributes, guarded signals, block statements, configuration
@@ -798,6 +802,8 @@ This version includes significant improvements to the parser's handling of compl
 | `Variable` | Represents VHDL signals, ports, variables, and constants with properties: `Name`, `Type`, `Value`, `Size`, `IsPort`, `PortType`, `IsStub`, `CustomTypeName`, `RecordFields`, and reactive `OnValueChange` event. Includes static `GetDatatype()` for type string resolution. |
 | `Constants` | Static class containing token types (`TYPE` enum), data types (`DATATYPES` enum), error codes (`ParseExceptions` enum), operator types (`OperatorType` enum: `ASSIGNATION`, `LOGIC_OPERATION`, `ARITH_OPERATION`, `COMPARATION`), port types (`PortType` enum: `IN`, `OUT`, `INOUT`, `BUFFER`), and regex patterns for token classification |
 | `ParserException` | Custom exception with rich error context including line/column info |
+| `ParserSkipOverflowException` | Subclass of `ParserException` thrown when a `Skip*` / `Parse*` loop runs past its iteration cap (carries the offending method name and the cap); lets pathological input fail fast instead of hanging the parser |
+| `Diagnostic` | Structured diagnostic (`DiagnosticSeverity` + line/column/code/message); `FromException(ParserException)` adapts the exception flow into Monaco markers |
 
 ### Interfaces
 
@@ -828,6 +834,14 @@ This version includes significant improvements to the parser's handling of compl
 | `ArchitectureAssignationParser` | Parses architecture header declarations (signals, constants, attributes) |
 | `VectorParser` | Parses vector types (`std_logic_vector`, etc.) |
 | `RangeParser` | Parses `range` declarations (extends `VectorParser`) |
+| `SharedLogging` | `internal static` helper exposing a single shared `ILoggerFactory` (console provider), reused by every parser to avoid per-instance `LoggerFactory` allocation |
+
+### Services
+
+| Service | Responsibility |
+|---------|----------------|
+| `UserTypeRegistry` | Process-wide catalogue of resolved user-defined VHDL type names; populated by the host from `LibraryCompiler` symbols before parsing, so the parser accepts package/library-declared types as valid type identifiers |
+| `ParseProfile` | Lightweight per-run counters for the parse-side hot paths (e.g. `Tokenizer.EvaluateToken`), emitted by the host when `KMILA_PARSE_PROFILE` is set |
 
 ---
 
@@ -1111,10 +1125,11 @@ The `Parse()` loop now detects the case where a port declaration finishes and th
 
 Current negative coverage (Parser root, alongside the existing `test1..test40.vhdl`):
 
-- `test_negative_unknown_type.vhdl` — typo `STDLOGIC` in a port type.
-- `test_negative_missing_port_semi.vhdl` — port lacks `;` before the next port.
+- `test_negative_unknown_type.vhdl` — typo `STDLOGIC` in a port type (must contain `STDLOGIC`).
+- `test_negative_missing_port_semi.vhdl` — port lacks `;` before the next port (must contain `Missing ';'`).
+- `test_negative_garbage_in_body.vhdl` — stray `$` token in the architecture body (must contain `Unexpected token '$'`).
 
 Adding more is one entry in the `negativeTests` array + a `test_negative_*.vhdl` file at the Parser root.
 
 ---
-*Last updated: 2026-05-02*
+*Last updated: 2026-08-03*

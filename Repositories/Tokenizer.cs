@@ -1,4 +1,5 @@
 using Parser.Models;
+using Parser.Services;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -238,6 +239,26 @@ public class Tokenizer{
             // resulting message text. Comments are now correctly stripped
             // at line level by the string-aware pass in TokenizeSpaces.
             if(String.IsNullOrEmpty(line)) return new();
+
+            // Tier 4.2 (2026-07-28) — bit-string literal atomicity: if the
+            // input starts with `"`, find the matching closing `"` and yield
+            // the whole `"…"` region as ONE token. Without this, VHDL-2008
+            // `case?` choices like `"10--"` get shredded by the `-` splitter
+            // into `"10`, `-`, `-`, `"` and no arm ever matches. Handles
+            // trailing punctuation (`"01";` → tokens [`"01"`, `;`]) by
+            // recursing on whatever follows the closing quote.
+            if (line[0] == '"')
+            {
+                int endQuote = line.IndexOf('"', 1);
+                if (endQuote >= 0)
+                {
+                    var literal = line.Substring(0, endQuote + 1);
+                    tokens.Add(literal);
+                    var rest = endQuote + 1 < line.Length ? line.Substring(endQuote + 1) : "";
+                    if (!String.IsNullOrEmpty(rest)) tokens.AddRange(TokenizeSpecialCharacters(rest));
+                    return tokens;
+                }
+            }
             foreach(var separator in separators){
                 if(line.Contains(separator)){
                     var splitted = line.Split(separator);

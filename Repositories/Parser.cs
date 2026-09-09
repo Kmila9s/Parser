@@ -341,13 +341,21 @@ public class Parser{
     /// <param name="ArchitectureName">Enclosing architecture name.</param>
     private void ParseCaseStructure(string EntityName, string ArchitectureName = ""){
         _streamer.Expect(KEYWORDS);
+        // VHDL-2008 matching-case (Tier 4.2, 2026-07-28) — the tokenizer
+        // splits `case?` into two tokens (`case` + `?`) because `?` is
+        // registered as a special character in Constants.SPECIALS_CHARACTERS.
+        // We consume the optional `?` here and again after `is` so the
+        // validator accepts both `case … is` and `case? … is?`.
+        if(_streamer.Current?.Value == "?") _streamer.MoveNext();
         if(!ExistsVariable(_streamer.Current?.Value ?? string.Empty, EntityName, ArchitectureName))
             throw new Exception($"Port not defined: {_streamer.Current?.Value}");
         _streamer.Expect(IDENTIFIERS);
         _streamer.Expect(KEYWORDS); // is
+        if(_streamer.Current?.Value == "?") _streamer.MoveNext();
         ParseCaseCases(EntityName, ArchitectureName);
         _streamer.Expect(KEYWORDS); // end
         _streamer.Expect(KEYWORDS); // case
+        if(_streamer.Current?.Value == "?") _streamer.MoveNext();
         _streamer.Expect(OPERATORS); // ;
     }
     /// <summary>Walks <c>when &lt;literal | others&gt; =&gt; …</c> branches inside a case statement.</summary>

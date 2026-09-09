@@ -745,6 +745,11 @@ public class DataStructuresParser : IParseStructures {
     private void ParseCaseStructure(){
         _logger.LogInformation("Parsing Case structure");
         _streamer.Expect(KEYWORDS); // case
+        // VHDL-2008 matching-case: `case?` is two tokens after the lexer
+        // (Constants.SPECIALS_CHARACTERS puts `?` on the split list). Accept
+        // the optional `?` after `case`, `is`, and `end case` so the
+        // validator green-lights `case? … is? … end case?;`.
+        if(_streamer.Current?.Value == "?") _streamer.MoveNext();
         // Parse case expression - can be simple identifier or indexed/sliced signal
         if(_streamer.Current?.Type == IDENTIFIERS){
             if(!ExistsVariable(_streamer.Current?.Value ?? string.Empty) && !IsStandardLibraryFunction(_streamer.Current?.Value ?? string.Empty))
@@ -770,9 +775,11 @@ public class DataStructuresParser : IParseStructures {
             }
         }
         _streamer.Expect(KEYWORDS); // is
+        if(_streamer.Current?.Value == "?") _streamer.MoveNext();
         ParseCaseCases();
         _streamer.Expect(KEYWORDS); // end
         _streamer.Expect(KEYWORDS); // case
+        if(_streamer.Current?.Value == "?") _streamer.MoveNext();
         _streamer.Expect(OPERATORS); // ;
         _logger.LogInformation("Case structure parsed");
     }
