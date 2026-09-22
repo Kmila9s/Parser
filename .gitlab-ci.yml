@@ -5,4 +5,4 @@ unit-test:
     image: mcr.microsoft.com/dotnet/sdk:9.0
     script:
       - dotnet --info
-      - dotnet test -c Release -p:TargetFrameworks=net9.0 -f net9.0
+      - dotnet test -c Release -p:TargetFrameworks=net9.0 -f net9.0 -p:CopyLocalLockFileAssemblies=true
