@@ -1,4 +1,5 @@
 using Parser.Models;
+using Parser.Services;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -9,17 +10,49 @@ namespace Parser.Repositories;
 /// Responsible for reading VHDL source code (from a file or string) and converting it into a sequence of tokens.
 /// </summary>
 public class Tokenizer{
+    /// <summary>Mutex reserved for future thread-safe usage of the tokenizer instance.</summary>
     private object _lock = new();
     /// <summary>
     /// Gets the last error message that occurred during tokenization.
     /// </summary>
     public string LastError { get; private set; }
+    /// <summary>Path of the VHDL file currently being tokenized; empty when tokenizing a raw string.</summary>
     private string _filePath = string.Empty;
+    /// <summary>Per-line buckets of raw token strings paired with the originating 0-based line index.</summary>
     private List<(List<string>, int)> _tokens;
+    /// <summary>Final classified token list, populated by <see cref="Evaluate"/>.</summary>
     private List<Token> _typeDictionary;
-    private readonly Regex _keywordsRegex, _operatorsRegex, _parenthesisRegex,
-    _identifiersRegex, _literalsRegex, _qualifiedIdentifiersRegex, _separatorsRegex,
-    _functionsRegex, _timeRegex, _vectorAttributes;
+    /// <summary>
+    /// Compiled token-classification regexes, one per <see cref="Constants.TYPE"/>.
+    /// Order of evaluation in <see cref="Evaluate"/> is significant — operators
+    /// and parenthesis are matched before identifiers so symbolic tokens are
+    /// not swallowed as names.
+    /// </summary>
+    /// <remarks>
+    /// F-G-08 pass 5 (2026-07-22): hoisted from per-instance fields to
+    /// static-readonly. Each Regex here uses <see cref="RegexOptions.Compiled"/>
+    /// which IL-emits the state machine on first construction; the
+    /// pre-pass-5 shape allocated all 10 regexes per <c>new Tokenizer(...)</c>
+    /// call. Because <c>Operation..ctor</c> calls <c>new Tokenizer(string.Empty)</c>
+    /// on every concurrent assignment, the elaborated capstone paid
+    /// hundreds × 10 compile-to-IL passes before the delta engine even
+    /// started. Static fields collapse this to 10 one-shot compilations
+    /// per process. Regex objects with <c>Compiled</c> are thread-safe
+    /// per Microsoft docs — safe to share.
+    /// </remarks>
+    private static readonly RegexOptions _regexIgnoreCase = RegexOptions.IgnoreCase | RegexOptions.Compiled;
+    private static readonly RegexOptions _regexCompiled = RegexOptions.Compiled;
+    private static readonly Regex _keywordsRegex = new(Constants.KEYWORDS, _regexIgnoreCase);
+    private static readonly Regex _operatorsRegex = new(Constants.OPERATORS, _regexCompiled);
+    private static readonly Regex _parenthesisRegex = new(Constants.PARENTHESIS, _regexCompiled);
+    private static readonly Regex _literalsRegex = new(Constants.LITERALS, _regexIgnoreCase);
+    private static readonly Regex _qualifiedIdentifiersRegex = new(Constants.QUALIFIED_IDENTIFIERS, _regexCompiled);
+    private static readonly Regex _identifiersRegex = new(Constants.IDENTIFIERS, _regexCompiled);
+    private static readonly Regex _separatorsRegex = new(Constants.SEPARATORS, _regexCompiled);
+    private static readonly Regex _functionsRegex = new(Constants.FUNCTIONS, _regexCompiled);
+    private static readonly Regex _timeRegex = new(Constants.TIME_VARIABLES, RegexOptions.IgnoreCase);
+    private static readonly Regex _vectorAttributes = new(Constants.VECTORS_ATTRIBUTES, _regexCompiled);
+    /// <summary>Current 0-based line index being processed; advanced by <see cref="ReadFile"/> / <see cref="ReadString"/>.</summary>
     private int _currentLine = 0;
 
     /// <summary>
@@ -31,18 +64,6 @@ public class Tokenizer{
         LastError = "";
         _tokens = new();
         _typeDictionary = new();
-        RegexOptions options = RegexOptions.IgnoreCase | RegexOptions.Compiled,
-        optionsCompiled = RegexOptions.Compiled;
-        _keywordsRegex = new(Constants.KEYWORDS, options);
-        _operatorsRegex = new(Constants.OPERATORS, optionsCompiled);
-        _parenthesisRegex = new(Constants.PARENTHESIS, optionsCompiled);
-        _literalsRegex = new(Constants.LITERALS, options);
-        _qualifiedIdentifiersRegex = new(Constants.QUALIFIED_IDENTIFIERS, optionsCompiled);
-        _identifiersRegex = new(Constants.IDENTIFIERS, optionsCompiled);
-        _separatorsRegex = new(Constants.SEPARATORS, optionsCompiled);
-        _functionsRegex = new(Constants.FUNCTIONS, optionsCompiled);
-        _timeRegex = new(Constants.TIME_VARIABLES, RegexOptions.IgnoreCase);
-        _vectorAttributes = new(Constants.VECTORS_ATTRIBUTES, optionsCompiled);
         _filePath = FilePath;
         if (!String.IsNullOrEmpty(_filePath))
             ReadFile(FilePath);
@@ -88,9 +109,65 @@ public class Tokenizer{
     /// <param name="line">The line of code to tokenize.</param>
     public void TokenizeLine(string line){
         List<string> tokens = new();
+        line = ConvertBasedLiterals(line);
         var preTokens = TokenizeSpaces(line.Trim());
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.Add((tokens, _currentLine ++));
+    }
+
+    /// <summary>
+    /// Compiled regex matching VHDL based-integer literals like
+    /// `2#1010#`, `8#777#`, `10#42#`, `16#FF_E0#`. The lexer splits on
+    /// `#` as a special character, which would break these literals into
+    /// three tokens, so we convert them to their decimal-integer
+    /// equivalent before the special-character pass runs. The semantics
+    /// are preserved — these are integer literals, and a plain decimal
+    /// integer occupies the same VHDL grammar slot.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex BasedLiteralRe =
+        new(@"(?<![\w#])(?<base>\d+)#(?<digits>[0-9A-Fa-f_]+)#",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Rewrites VHDL based-integer literals inline. Bases 2..16 are
+    /// supported; underscores inside the digit run are ignored (VHDL
+    /// allows them as visual separators).
+    /// </summary>
+    private static string ConvertBasedLiterals(string line)
+    {
+        if (string.IsNullOrEmpty(line) || !line.Contains('#')) return line;
+        return BasedLiteralRe.Replace(line, m =>
+        {
+            if (!int.TryParse(m.Groups["base"].Value, out var b) || b < 2 || b > 16) return m.Value;
+            var digits = m.Groups["digits"].Value.Replace("_", string.Empty);
+            try { return Convert.ToInt64(digits, b).ToString(System.Globalization.CultureInfo.InvariantCulture); }
+            catch { return m.Value; }
+        });
+    }
+
+    /// <summary>
+    /// Same as <see cref="TokenizeLine(string)"/> but stamps the produced
+    /// tokens with an explicit source-file line index rather than the
+    /// internal call-order counter. Used by callers that have already
+    /// stripped blank/comment-only lines from the input but still want
+    /// downstream diagnostics to reference original file line numbers.
+    /// </summary>
+    /// <param name="line">The line of code to tokenize.</param>
+    /// <param name="sourceLineZeroBased">
+    /// 0-based original file line index. The error formatter adds +1
+    /// when rendering it as "Line N", so callers should pass the index
+    /// (i.e. <c>i</c> from <c>for (int i = 0; ...)</c>) not the 1-based
+    /// number.
+    /// </param>
+    public void TokenizeLineAt(string line, int sourceLineZeroBased){
+        List<string> tokens = new();
+        line = ConvertBasedLiterals(line);
+        var preTokens = TokenizeSpaces(line.Trim());
+        foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
+        _tokens.Add((tokens, sourceLineZeroBased));
+        // Keep _currentLine aligned so any later TokenizeLine() call lands
+        // beyond the highest seen number rather than reverting to 0.
+        if (sourceLineZeroBased >= _currentLine) _currentLine = sourceLineZeroBased + 1;
     }
     /// <summary>
     /// Tokenizes a single line and returns the raw string tokens.
@@ -99,6 +176,7 @@ public class Tokenizer{
     /// <returns>An array of string tokens.</returns>
     public string[] TokenizeLineReturn(string line){
         List<string> tokens = new();
+        line = ConvertBasedLiterals(line);
         var preTokens = TokenizeSpaces(line);
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token));
         return tokens.ToArray();
@@ -111,7 +189,14 @@ public class Tokenizer{
             line = line.Trim();
             if(line.StartsWith("--") || line.StartsWith("//")) return new();
             if(String.IsNullOrEmpty(line)) return new();
-            if(line.Contains("--")) line = line.Split("--")[0];
+            // F-G-12a (2026-07-18): strip a `-- ...` trailing line comment
+            // but ONLY when the `--` lives outside a string literal. The
+            // previous unconditional split truncated `report "-------- "`
+            // at the first `--` inside the message, dropping the rest of
+            // the string and silently losing any downstream report /
+            // assert whose text contained `--`.
+            int cutoff = FindTrailingLineCommentStart(line);
+            if (cutoff >= 0) line = line.Substring(0, cutoff);
             line = line.Replace("\t", "");
             return line
                     .Trim()
@@ -123,14 +208,57 @@ public class Tokenizer{
         }
         return new();
     }
+
+    /// <summary>
+    /// F-G-12a (2026-07-18): returns the byte index of a `--` line-comment
+    /// start OUTSIDE any string literal, or -1 if none. Strings don't span
+    /// lines in VHDL, so a single per-line `"` toggle is sufficient.
+    /// </summary>
+    private static int FindTrailingLineCommentStart(string line)
+    {
+        bool insideString = false;
+        for (int i = 0; i < line.Length - 1; i++)
+        {
+            char c = line[i];
+            if (c == '"') { insideString = !insideString; continue; }
+            if (!insideString && c == '-' && line[i + 1] == '-') return i;
+        }
+        return -1;
+    }
     /// <summary>
     /// Splits a token by special characters (e.g., ':=', ';', '(').
     /// </summary>
     private List<string> TokenizeSpecialCharacters(string line){
         try{
-            List<string> tokens = new(), separators = new(){ ":=", "<=", "=>"};
-            if(line.StartsWith("--")) return new();
+            List<string> tokens = new(), separators = new(){ ":=", "<=", "=>", "**", "/=", ">="};
+            // F-G-12a (2026-07-18): removed `if(line.StartsWith("--")) return new();`
+            // — this was a per-token safety net for the days when
+            // TokenizeSpaces couldn't reliably strip line comments; it
+            // fired on the recursive split of a string like `"--------"`,
+            // dropping every 7-and-shorter dash run and mangling the
+            // resulting message text. Comments are now correctly stripped
+            // at line level by the string-aware pass in TokenizeSpaces.
             if(String.IsNullOrEmpty(line)) return new();
+
+            // Tier 4.2 (2026-07-28) — bit-string literal atomicity: if the
+            // input starts with `"`, find the matching closing `"` and yield
+            // the whole `"…"` region as ONE token. Without this, VHDL-2008
+            // `case?` choices like `"10--"` get shredded by the `-` splitter
+            // into `"10`, `-`, `-`, `"` and no arm ever matches. Handles
+            // trailing punctuation (`"01";` → tokens [`"01"`, `;`]) by
+            // recursing on whatever follows the closing quote.
+            if (line[0] == '"')
+            {
+                int endQuote = line.IndexOf('"', 1);
+                if (endQuote >= 0)
+                {
+                    var literal = line.Substring(0, endQuote + 1);
+                    tokens.Add(literal);
+                    var rest = endQuote + 1 < line.Length ? line.Substring(endQuote + 1) : "";
+                    if (!String.IsNullOrEmpty(rest)) tokens.AddRange(TokenizeSpecialCharacters(rest));
+                    return tokens;
+                }
+            }
             foreach(var separator in separators){
                 if(line.Contains(separator)){
                     var splitted = line.Split(separator);
@@ -172,37 +300,56 @@ public class Tokenizer{
     /// <summary>
     /// Evaluates all raw tokens and classifies them into <see cref="Token"/> objects.
     /// </summary>
-    public void Evaluate() => _typeDictionary = EvaluateTokens();
+    public void Evaluate()
+    {
+        _typeDictionary = EvaluateTokens();
+        // Drop the raw pre-evaluation token buffer — once Evaluate() has
+        // built _typeDictionary nobody else reads `_tokens`, but it used
+        // to stay alive for the lifetime of the Tokenizer instance
+        // (Entity / Architecture), doubling the in-memory cost of every
+        // parsed source file.
+        _tokens.Clear();
+        _tokens.TrimExcess();
+    }
     /// <summary>
     /// Classifies a single raw string token into a <see cref="Token"/> object using regular expressions.
     /// </summary>
     /// <param name="token">The raw string token.</param>
     /// <returns>A classified <see cref="Token"/>.</returns>
     private Token EvaluateToken(string token){
+        var _profileStopwatch = ParseProfile.Enabled ? System.Diagnostics.Stopwatch.StartNew() : null;
         var evaluationToken = token.ToLower();
+        Token result;
         if(_keywordsRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.KEYWORDS);
+            result = new(token, Constants.TYPE.KEYWORDS);
         else if(_operatorsRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.OPERATORS);
+            result = new(token, Constants.TYPE.OPERATORS);
         else if(_parenthesisRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.PARENTHESIS);
+            result = new(token, Constants.TYPE.PARENTHESIS);
         else if(_literalsRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.LITERALS);
+            result = new(token, Constants.TYPE.LITERALS);
         else if(_qualifiedIdentifiersRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.QUALIFIED_IDENTIFIERS);
+            result = new(token, Constants.TYPE.QUALIFIED_IDENTIFIERS);
         else if(_timeRegex.IsMatch(token.ToLower()))
-            return new(token, Constants.TYPE.TIME_VARIABLES);
+            result = new(token, Constants.TYPE.TIME_VARIABLES);
         else if(_identifiersRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.IDENTIFIERS);
+            result = new(token, Constants.TYPE.IDENTIFIERS);
         else if(_separatorsRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.SEPARATORS);
+            result = new(token, Constants.TYPE.SEPARATORS);
         else if(_functionsRegex.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.METHODS);
+            result = new(token, Constants.TYPE.METHODS);
         else if(_vectorAttributes.IsMatch(evaluationToken))
-            return new(token, Constants.TYPE.VECTORS_ATTRIBUTES);
+            result = new(token, Constants.TYPE.VECTORS_ATTRIBUTES);
         else
-            return new(token, Constants.TYPE.UNKNOWN);
+            result = new(token, Constants.TYPE.UNKNOWN);
+        if (_profileStopwatch != null)
+        {
+            _profileStopwatch.Stop();
+            ParseProfile.RecordTokenizerEvaluateToken(_profileStopwatch.ElapsedTicks);
+        }
+        return result;
     }
+
     /// <summary>
     /// Iterates through all tokenized lines and evaluates each token.
     /// </summary>

@@ -7,10 +7,63 @@ namespace Parser.Models;
 /// Represents a VHDL variable, signal, constant, or port.
 /// </summary>
 public class Variable {
+    private string _name = string.Empty;
+    private string _nameLower = string.Empty;
     /// <summary>
     /// Gets or sets the name of the variable.
     /// </summary>
-    public string Name { get; set; } = string.Empty;
+    /// <remarks>
+    /// F-G-08 pass 5 (2026-07-22): backing field + <c>_nameLower</c> cache.
+    /// Pre-pass-5 the case-insensitive <see cref="Equals"/> /
+    /// <see cref="GetHashCode"/> allocated a fresh <c>ToLower()</c> string per
+    /// call. On the elaborated capstone every <c>HashSet&lt;Variable&gt;.Contains</c>
+    /// (thousands per delta cycle) took 2–3 allocations. Cache is refreshed
+    /// on every <c>Name</c> setter call so late renames stay coherent.
+    /// </remarks>
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            _name = value ?? string.Empty;
+            _nameLower = _name.ToLowerInvariant();
+        }
+    }
+    /// <summary>
+    /// Gets or sets whether this is a stub variable (created for undeclared identifiers).
+    /// </summary>
+    public bool IsStub { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the custom type name for record/array types.
+    /// Used when the variable is declared with a user-defined type.
+    /// v0.15.0: Added to support record type field access.
+    /// </summary>
+    public string? CustomTypeName { get; set; } = null;
+
+    /// <summary>
+    /// Gets or sets the record field values for record type variables.
+    /// Keys are field names, values are the field values.
+    /// v0.15.0: Added to support record types.
+    /// </summary>
+    public Dictionary<string, object>? RecordFields { get; set; } = null;
+
+    /// <summary>
+    /// For variables declared with a user array type (e.g. `signal mem : rom_t`
+    /// where `rom_t` is `array(0 to 7) of std_logic_vector(7 downto 0)`), the
+    /// per-element width in bits. Stays at 0 for scalar / plain vector signals,
+    /// which means "treat indexed access as single-bit" (the legacy path).
+    /// When set, indexed reads via DynamicIndex / DeferredIndex extract an
+    /// ElementSize-wide slice instead of a single character, matching VHDL
+    /// element-access semantics for arrays of vectors.
+    /// </summary>
+    public int ElementSize { get; set; } = 0;
+
+    /// <summary>
+    /// Number of elements in the array (e.g. 8 for `array(0 to 7) of ...`).
+    /// 0 for non-array variables.
+    /// </summary>
+    public int ArrayLength { get; set; } = 0;
     private DATATYPES _dataType = DATATYPES.UNKNOWN;
     /// <summary>
     /// Gets or sets the data type of the variable.
@@ -23,10 +76,9 @@ public class Variable {
                     Value = "U";
             break;
             case DATATYPES.STD_LOGIC_VECTOR:
-                if (_value == null)
-                {
-                    _value = "U";
-                }   
+                // Don't initialize _value here - let Size setter handle it
+                // If we set _value = "U" here, Size setter will see non-null value
+                // and incorrectly calculate size as 1 instead of declared vector width
             break;
             default:
                 Value = Value;
@@ -38,32 +90,39 @@ public class Variable {
     /// </summary>
     /// <param name="type">The string value of the data type.</param>
     /// <returns>The <see cref="DATATYPES"/> enum member.</returns>
-    public static DATATYPES GetDatatype(string type) =>
-        type.ToLower().Equals("std_logic") ?
-            DATATYPES.STD_LOGIC :
-        type.ToLower().Equals("signed") ?
-            DATATYPES.STD_LOGIC_VECTOR :
-        type.ToLower().Equals("unsigned") ?
-            DATATYPES.STD_LOGIC_VECTOR :
-        type.ToLower().Equals("std_logic_vector") ?
-            DATATYPES.STD_LOGIC_VECTOR :
-        type.ToLower().Equals("natural") ?
-            DATATYPES.NATURAL :
-        type.ToLower().Equals("integer") ?
-            DATATYPES.INTEGER :
-        type.ToLower().Equals("bit") ?
-            DATATYPES.BIT :
-        type.ToLower().Equals("boolean") ?
-            DATATYPES.BOOLEAN :
-        type.ToLower().Equals("hex") ?
-            DATATYPES.HEX :
-        type.ToLower().Equals("range") ?
-            DATATYPES.RANGE :
-        type.ToLower().Equals("character") ?
-            DATATYPES.CHARACTER :
-            DATATYPES.UNKNOWN ;
-    public override string ToString() => 
+    public static DATATYPES GetDatatype(string type) {
+        string typeLower = type.ToLower();
+        return typeLower switch {
+            "std_logic" => DATATYPES.STD_LOGIC,
+            "std_ulogic" => DATATYPES.STD_LOGIC,
+            "signed" => DATATYPES.STD_LOGIC_VECTOR,
+            "unsigned" => DATATYPES.STD_LOGIC_VECTOR,
+            "std_logic_vector" => DATATYPES.STD_LOGIC_VECTOR,
+            "std_ulogic_vector" => DATATYPES.STD_LOGIC_VECTOR,
+            "bit_vector" => DATATYPES.STD_LOGIC_VECTOR,
+            "boolean_vector" => DATATYPES.STD_LOGIC_VECTOR,
+            "integer_vector" => DATATYPES.STD_LOGIC_VECTOR,
+            "natural" => DATATYPES.NATURAL,
+            "positive" => DATATYPES.NATURAL, // positive is subtype of natural
+            "integer" => DATATYPES.INTEGER,
+            "bit" => DATATYPES.BIT,
+            "boolean" => DATATYPES.BOOLEAN,
+            "hex" => DATATYPES.HEX,
+            "range" => DATATYPES.RANGE,
+            "character" => DATATYPES.CHARACTER,
+            "string" => DATATYPES.CHARACTER, // treat string as character array for now
+            "time" => DATATYPES.INTEGER, // treat time as integer for simplicity
+            "real" => DATATYPES.INTEGER, // treat real as integer for simplicity (limited support)
+            _ => DATATYPES.UNKNOWN
+        };
+    }
+    /// <summary>
+    /// Returns the string representation of the variable's value.
+    /// </summary>
+    /// <returns>The value as a string, or an empty string if null.</returns>
+    public override string ToString() =>
         Convert.ToString(Value ?? string.Empty) ?? string.Empty;
+    /// <summary>Backing field for the <see cref="Size"/> property.</summary>
     private int _size = 0;
     /// <summary>
     /// Gets or sets the size of the variable, typically for vector types.
@@ -72,24 +131,74 @@ public class Variable {
     /// <exception cref="IndexOutOfRangeException">Thrown if the assigned value's length does not match the size for non-port vectors.</exception>
     public int Size { get => _size; set{
         _size = value;
+#if DEBUG
+        bool isDebugPort = Name != null && (Name == "data_in" || Name == "data_out");
+        if (isDebugPort)
+            Console.WriteLine($"[Variable.Size setter] '{Name}' setting _size={value}, _dataType={_dataType}, _value={(object?)_value}");
+#endif
         if (_dataType == DATATYPES.STD_LOGIC_VECTOR)
         {
             string arr = new('U', _size);
-                if (Value == null)
+                if (_value == null)
+                {
+#if DEBUG
+                    if (isDebugPort)
+                        Console.WriteLine($"[Variable.Size setter] '{Name}' _value is null, setting Value to arr (length {arr.Length})");
+#endif
                     Value = arr;
+                }
                 else
                 {
                     var val = Convert.ToString(Value) == "System.Object" ? "U" : Convert.ToString(Value);
-                    if (value != 0)
+                    // Handle (others => 'X') aggregate pattern
+                    if (val != null && val.StartsWith("(others=>"))
                     {
-
-                        if (val?.Length != value && !IsPort && val != "U")
-                            throw new IndexOutOfRangeException();
+                        // Extract the fill character and expand to size
+                        char fillChar = val.Contains("0") ? '0' : (val.Contains("1") ? '1' : 'U');
+                        Value = new string(fillChar, value);
+                        _size = value;
                     }
-                    _size = val?.Length ?? value;
-                }    
+                    // Handle (concat:...) expression pattern - couldn't evaluate at parse time
+                    else if (val != null && val.StartsWith("(concat:"))
+                    {
+                        // Use the declared size with undefined value (U)
+                        Value = new string('U', value);
+                        _size = value;
+                    }
+                    else if (value != 0)
+                    {
+                        if (val?.Length != value && !IsPort && val != "U")
+                        {
+                            // Adjust value to match declared size
+                            if (val?.Length > value)
+                            {
+                                // Truncate
+                                Value = val.Substring(val.Length - value);
+                            }
+                            else if (val?.Length < value)
+                            {
+                                // Pad with U
+                                Value = val.PadLeft(value, 'U');
+                            }
+                            _size = value;
+                        }
+                        else
+                        {
+                            _size = val?.Length ?? value;
+#if DEBUG
+                            if (isDebugPort)
+                                Console.WriteLine($"[Variable.Size setter] '{Name}' setting _size from val.Length={val?.Length} or value={value}, final _size={_size}");
+#endif
+                        }
+                    }
+                }
         }
+#if DEBUG
+        if (isDebugPort)
+            Console.WriteLine($"[Variable.Size setter] '{Name}' FINAL _size={_size}");
+#endif
     } }
+    /// <summary>Backing field for the <see cref="Value"/> property.</summary>
     private object? _value = null;
     /// <summary>
     /// Occurs when the value of the variable changes.
@@ -109,9 +218,25 @@ public class Variable {
                 case DATATYPES.STD_LOGIC:
                 case DATATYPES.STD_LOGIC_VECTOR:
                     if (value == null)
+                    {
                         transformed = "U";
+                    }
+                    // F-G-08 (2026-07-15): fast path — engine-driven writes
+                    // land as already-clean strings. Avoid two allocations
+                    // (Replace × 2) per assignment when the input has no
+                    // quotes to strip. Falls back to the general path only
+                    // for source-parsed literals like `"1010"` or `'1'`.
+                    else if (value is string s)
+                    {
+                        if (s.Length == 0 || (s.IndexOf('"') < 0 && s.IndexOf('\'') < 0))
+                            transformed = s;
+                        else
+                            transformed = s.Replace("\"", "").Replace("'", "");
+                    }
                     else
+                    {
                         transformed = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
+                    }
                     break;
                 default:
                     transformed = value;
@@ -124,37 +249,83 @@ public class Variable {
             }
         }
     }
+    /// <summary>
+    /// Gets or sets whether this variable represents a port in an entity declaration.
+    /// </summary>
     public bool IsPort { get; set; } = false;
+    /// <summary>
+    /// True when this row came from a <c>constant</c> declaration (architecture-
+    /// local or package). Constants share storage with signals but must be
+    /// excluded from VCD dumps because they never change over sim-time and
+    /// waveform viewers should not carry them as $var entries.
+    /// Audit F-G-03 (2026-07-09).
+    /// </summary>
+    public bool IsConstant { get; set; } = false;
+    /// <summary>
+    /// Gets or sets the direction of the port (IN, OUT, INOUT, BUFFER).
+    /// Only relevant when <see cref="IsPort"/> is true.
+    /// </summary>
     public PortType PortType { get; set; } = PortType.IN;
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Variable"/> class with a specified name.
+    /// </summary>
+    /// <param name="Name">The name of the variable.</param>
     public Variable(string Name){ this.Name = Name;}
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Variable"/> class with an empty name.
+    /// </summary>
     public Variable(){ this.Name = string.Empty;}
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Variable"/> class with name, value, type, and optional size.
+    /// </summary>
+    /// <param name="Name">The name of the variable.</param>
+    /// <param name="Value">The initial value.</param>
+    /// <param name="Type">The VHDL data type.</param>
+    /// <param name="Size">The size for vector types (default 0).</param>
     public Variable(string Name, object Value, DATATYPES Type, int Size = 0){
         this.Name = Name;
         this.Type = Type;
         this.Value = Value;
         this.Size = Size;
     }
+    /// <summary>
+    /// Allows implicit conversion from a string name to a Variable instance.
+    /// </summary>
+    /// <param name="Name">The variable name.</param>
     public static implicit operator Variable(string Name) => new(Name);
+    /// <summary>
+    /// Determines whether the specified object is equal to this variable by comparing names (case-insensitive).
+    /// Supports comparison with other <see cref="Variable"/> instances or <see cref="string"/> names.
+    /// </summary>
+    /// <param name="obj">The object to compare with.</param>
+    /// <returns>true if the names match (case-insensitive); otherwise, false.</returns>
     public override bool Equals(object? obj)
     {
         if(obj is Variable var)
-            return var.Name.ToLower() == this.Name.ToLower();
+            return var._nameLower == this._nameLower;
         if(obj is string varName)
-            return varName.ToLower() == this.Name.ToLower();
+            return varName.ToLowerInvariant() == this._nameLower;
         return false;
     }
     /// <summary>
     /// Serves as the default hash function.
+    /// Returns a case-insensitive hash code to match the Equals behavior for VHDL identifiers.
     /// </summary>
     /// <returns>A hash code for the current object.</returns>
     public override int GetHashCode()
     {
-        return this.Name?.GetHashCode() ?? 0;
+        return this._nameLower.GetHashCode();
     }
-    public static bool operator ==(string p, Variable var) => p.ToLower() == var.Name.ToLower();
-    public static bool operator ==(Variable var, string p) => p.ToLower() == var.Name.ToLower();
-    public static bool operator ==(Variable var, Variable comp) => var.Name == comp.Name;
-    public static bool operator !=(Variable var, Variable comp) => var.Name != comp.Name;    
-    public static bool operator !=(string p, Variable var) => !(p.ToLower() == var.Name.ToLower());
-    public static bool operator !=(Variable var, string p) => !(p.ToLower() == var.Name.ToLower());
+    /// <summary>Case-insensitive equality: string == Variable.</summary>
+    public static bool operator ==(string p, Variable var) => var?._nameLower != null && p?.ToLowerInvariant() == var._nameLower;
+    /// <summary>Case-insensitive equality: Variable == string.</summary>
+    public static bool operator ==(Variable var, string p) => var?._nameLower != null && p?.ToLowerInvariant() == var._nameLower;
+    /// <summary>Equality comparison between two Variable instances by name.</summary>
+    public static bool operator ==(Variable var, Variable comp) => var?.Name == comp?.Name;
+    /// <summary>Inequality comparison between two Variable instances by name.</summary>
+    public static bool operator !=(Variable var, Variable comp) => var?.Name != comp?.Name;
+    /// <summary>Case-insensitive inequality: string != Variable.</summary>
+    public static bool operator !=(string p, Variable var) => !(var?.Name != null && p?.ToLower() == var.Name.ToLower());
+    /// <summary>Case-insensitive inequality: Variable != string.</summary>
+    public static bool operator !=(Variable var, string p) => !(var?.Name != null && p?.ToLower() == var.Name.ToLower());
 }

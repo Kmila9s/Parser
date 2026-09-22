@@ -10,7 +10,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class FunctionAssignationParser : IParseDeclarations {
     private TokenStream _streamer;
-    private readonly ILogger<FunctionAssignationParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<FunctionAssignationParser>();
+    private readonly ILogger<FunctionAssignationParser> _logger = SharedLogging.Factory.CreateLogger<FunctionAssignationParser>();
     private string _name = string.Empty, _entityName = string.Empty;
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     //private VectorParser _vectorParser = default!;
@@ -51,18 +51,60 @@ public class FunctionAssignationParser : IParseDeclarations {
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     /// <summary>
     /// Parses the list of parameter declarations.
+    /// Handles vector types like std_logic_vector(31 downto 0).
     /// </summary>
     public void ParseDeclarations(){
         while(_streamer.Current?.Type == IDENTIFIERS){
-            //_streamer.Expect(IDENTIFIERS);
             ParseWithComas();
             _streamer.Expect(OPERATORS); // :
-            _streamer.Expect(KEYWORDS); // DATATYPE
-            if(_streamer.Current.Type != OPERATORS && _streamer.Current.Value != ";")
-                break;
-            else
+            string dataType = _streamer.Current?.Value.ToLower() ?? string.Empty;
+            // Data type can be keyword (std_logic, integer) or identifier (custom type)
+            if(_streamer.Current?.Type == KEYWORDS)
+                _streamer.Expect(KEYWORDS);
+            else if(_streamer.Current?.Type == IDENTIFIERS)
+                _streamer.Expect(IDENTIFIERS);
+            // If it's a vector type or custom type with array access, parse the bounds
+            if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
+                ParseVectorBounds();
+            }
+            // Check if there are more parameters separated by ;
+            if(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value == ";")
                 _streamer.Expect(OPERATORS);
+            else
+                break;
         }
+    }
+    /// <summary>
+    /// Checks if the given data type is a vector type that requires bounds.
+    /// </summary>
+    private bool IsVectorType(string dataType)
+        => dataType == "std_logic_vector" || dataType == "bit_vector" ||
+           dataType == "boolean_vector" || dataType == "integer_vector" ||
+           dataType == "signed" || dataType == "unsigned";
+    /// <summary>
+    /// Parses vector bounds like (31 downto 0).
+    /// </summary>
+    private void ParseVectorBounds(){
+        _streamer.Expect(PARENTHESIS); // (
+        // Parse the bound expression
+        while(_streamer.Current?.Type != PARENTHESIS || _streamer.Current?.Value != ")"){
+            if(_streamer.Current?.Type == LITERALS){
+                _streamer.Expect(LITERALS);
+            }
+            else if(_streamer.Current?.Type == IDENTIFIERS){
+                _streamer.Expect(IDENTIFIERS);
+            }
+            else if(_streamer.Current?.Type == KEYWORDS){
+                _streamer.Expect(KEYWORDS); // downto, to
+            }
+            else if(_streamer.Current?.Type == OPERATORS){
+                _streamer.Expect(OPERATORS);
+            }
+            else{
+                break;
+            }
+        }
+        _streamer.Expect(PARENTHESIS); // )
     }
     /// <summary>
     /// Parses comma-separated identifiers for function parameters, adding them to the function's scope.

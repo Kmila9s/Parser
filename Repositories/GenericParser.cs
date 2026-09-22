@@ -10,7 +10,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class GenericParser : IParseGeneric {
     private TokenStream _streamer;
-    private readonly ILogger<GenericParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<GenericParser>();
+    private readonly ILogger<GenericParser> _logger = SharedLogging.Factory.CreateLogger<GenericParser>();
     private Dictionary<string, HashSet<Variable>> _scopes;
     private readonly VectorParser _vectorParser;
     private readonly RangeParser _rangeParser;
@@ -37,6 +37,9 @@ public class GenericParser : IParseGeneric {
         ParseStructure();
         _logger.LogInformation("Generic Parsed");
     }
+    /// <summary>
+    /// Parses the entire generic structure including the 'generic' keyword, parentheses, and all constant declarations within.
+    /// </summary>
     public void ParseStructure(){
         _streamer.Expect(KEYWORDS);
         _streamer.Expect(PARENTHESIS);
@@ -69,9 +72,12 @@ public class GenericParser : IParseGeneric {
                     _streamer.Expect(TIME_VARIABLES);
                 }
                 if(_streamer.Current?.Type == OPERATORS && _streamer.Current.Value != ";"){
-                    // Asignation
-                    _streamer.Expect(OPERATORS);
-                    _streamer.Expect(LITERALS);
+                    // Default-value assignment. Earlier this slot only accepted a single
+                    // token (literal / identifier / qualified id), which rejected real-
+                    // world generics like `TOTAL : integer := BASE * TIMES`. Consume a
+                    // full arithmetic expression up to the next `;` or top-level `)`.
+                    _streamer.Expect(OPERATORS); // :=
+                    ParseDefaultExpression();
                 }
                 if(_streamer.Current?.Type == KEYWORDS && _streamer.Current.Value.ToLower().Equals("after")){
                     _streamer.Expect(KEYWORDS); // after
@@ -81,6 +87,35 @@ public class GenericParser : IParseGeneric {
             }
         }
     }
+    /// <summary>
+    /// Consumes the right-hand side of a generic's <c>:=</c> default-value clause,
+    /// stopping at the next top-level <c>;</c> or the closing <c>)</c> of the
+    /// generic block. Handles arbitrary arithmetic and function-call expressions
+    /// (e.g. <c>BASE * TIMES</c>, <c>clog2(DEPTH) + 1</c>), nested parentheses,
+    /// time-unit suffixes, and package-qualified identifiers.
+    /// </summary>
+    /// <remarks>
+    /// We don't constant-fold here — the value's numerical result is computed
+    /// later by <c>VariableSyntetizer</c> when it sees the generic referenced
+    /// from a port-width range expression. This parser pass only needs to
+    /// advance the streamer past the whole RHS so the next generic decl
+    /// starts at the right token.
+    /// </remarks>
+    private void ParseDefaultExpression(){
+        int depth = 0;
+        while(_streamer.Current != null){
+            var t = _streamer.Current;
+            // Statement / block terminator at depth 0.
+            if(depth == 0 && t.Type == OPERATORS && t.Value == ";") return;
+            if(depth == 0 && t.Type == PARENTHESIS && t.Value == ")") return;
+            // Track parenthesis nesting so we don't mistake an inner `)`
+            // for the end of the generic block.
+            if(t.Type == PARENTHESIS && t.Value == "(") depth++;
+            else if(t.Type == PARENTHESIS && t.Value == ")") depth--;
+            _streamer.MoveNext();
+        }
+    }
+
     /// <summary>
     /// Parses comma-separated identifiers in a generic declaration, adding each as a new variable to the current scope.
     /// </summary>

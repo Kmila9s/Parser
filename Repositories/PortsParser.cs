@@ -12,7 +12,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class PortsParser : IParseDeclarations {
     private TokenStream _streamer;
-    private readonly ILogger<PortsParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PortsParser>();
+    private readonly ILogger<PortsParser> _logger = SharedLogging.Factory.CreateLogger<PortsParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private VectorParser _vectorParser = default!;
     private RangeParser _rangeParser = default!;
@@ -39,8 +39,20 @@ public class PortsParser : IParseDeclarations {
         _streamer.Expect(PARENTHESIS);
         while(_streamer.Current?.Type == IDENTIFIERS){
             ParseDeclarations();
-            if(_streamer.Current?.Type == OPERATORS && (_streamer.Current?.Value.Equals(";") ?? false))
+            if(_streamer.Current?.Type == OPERATORS && (_streamer.Current?.Value.Equals(";") ?? false)){
                 _streamer.MoveNext();
+            } else if (_streamer.Current?.Type == IDENTIFIERS) {
+                // We finished a port declaration but the next token is
+                // another identifier — that's the start of a new port
+                // without a `;` separator. Catch this here instead of
+                // letting it cascade into a confusing downstream
+                // "expected )" error from `_streamer.Expect(PARENTHESIS)`.
+                // See [[project_vhdl_parser_too_lenient]] memory note.
+                var bad = _streamer.Current;
+                throw new ParserException(
+                    $"Missing ';' before port '{bad.Value}' in port declaration list.",
+                    bad);
+            }
         }
         _streamer.Expect(PARENTHESIS);
         _streamer.Expect(OPERATORS);
@@ -78,12 +90,42 @@ public class PortsParser : IParseDeclarations {
         _rangeParser.Parse();
 
         if(!_vectorParser.Parsed && !_rangeParser.Parsed){
-            string dataType = _streamer.Current?.Value ?? string.Empty;
+            var typeToken = _streamer.Current;
+            string dataType = typeToken?.Value ?? string.Empty;
+
+            // Strictness: when the type sits as an IDENTIFIER (not a
+            // recognised KEYWORD) AND it's close to a canonical type name
+            // (Levenshtein ≤ 2), fail loudly with a "did you mean"
+            // suggestion. Catches the STDLOGIC / STD_LGIC slips the
+            // Debugger flagged in [[project_vhdl_parser_too_lenient]].
+            // Legitimate user-defined types — typically longer / more
+            // distinctive — fall outside the distance window and pass
+            // through as before.
+            if (typeToken?.Type == IDENTIFIERS &&
+                Constants.GetDatatype(dataType) == Constants.DATATYPES.UNKNOWN)
+            {
+                var suggestion = Constants.FindTypoSuggestion(dataType);
+                if (!string.IsNullOrEmpty(suggestion))
+                {
+                    throw new ParserException(
+                        $"Unknown port type '{dataType}'. Did you mean '{suggestion}'?",
+                        typeToken);
+                }
+            }
+
             variables.ForEach(p => {
                 p.Type = Constants.GetDatatype(dataType);
                 _scopes[_name].Add(p);
             });
-            _streamer.Expect(KEYWORDS);
+            // Data type can be keyword (std_logic, integer) or identifier (custom type)
+            if(_streamer.Current?.Type == KEYWORDS)
+                _streamer.Expect(KEYWORDS);
+            else if(_streamer.Current?.Type == IDENTIFIERS)
+                _streamer.Expect(IDENTIFIERS);
+            // Handle array type with bounds like coefficient_array_t(0 to N-1)
+            if(_streamer.Current?.Type == PARENTHESIS && _streamer.Current?.Value == "("){
+                ParseTypeBounds();
+            }
         }else{
             if(_vectorParser.Parsed)
                 variables.ForEach(p => {
@@ -99,11 +141,27 @@ public class PortsParser : IParseDeclarations {
     }
 
     /// <summary>
+    /// Parses type bounds like (0 to N-1) for array types.
+    /// </summary>
+    private void ParseTypeBounds(){
+        _streamer.Expect(PARENTHESIS); // (
+        int depth = 1;
+        while(depth > 0 && _streamer.Current != null){
+            if(_streamer.Current?.Type == PARENTHESIS){
+                if(_streamer.Current?.Value == "(") depth++;
+                else if(_streamer.Current?.Value == ")") depth--;
+                if(depth == 0) break;
+            }
+            _streamer.MoveNext();
+        }
+        _streamer.Expect(PARENTHESIS); // )
+    }
+    /// <summary>
     /// Checks if a variable exists within the current port's scope.
     /// </summary>
     /// <param name="variable">The name of the variable to check.</param>
     /// <returns>True if the variable exists, otherwise false.</returns>
-    public bool ExistsVariable(string variable) 
+    public bool ExistsVariable(string variable)
         => _scopes.ContainsKey(_name) && _scopes[_name].Contains(variable);
     /// <summary>
     /// Gets the dictionary of scopes.

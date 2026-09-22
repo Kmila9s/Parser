@@ -11,7 +11,7 @@ namespace Parser.Repositories;
 /// </summary>
 public class EntityParser : IParseStructures {
     private TokenStream _streamer;
-    private readonly ILogger<EntityParser> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<EntityParser>();
+    private readonly ILogger<EntityParser> _logger = SharedLogging.Factory.CreateLogger<EntityParser>();
     private Dictionary<string, HashSet<Variable>> _scopes = new();
     private GenericParser _genericParser = default!;
     private PortsParser _portsParser = default!;
@@ -53,6 +53,9 @@ public class EntityParser : IParseStructures {
     /// </summary>
     /// <returns>The dictionary of scopes.</returns>
     public Dictionary<string, HashSet<Variable>> GetScopes() => _scopes;
+    /// <summary>
+    /// Parses the entity declaration, including entity name, generic block, port block, and end closure.
+    /// </summary>
     public void ParseDeclaration(){
         _streamer.Expect(KEYWORDS);
         _name = _streamer.Current?.Value ?? string.Empty;

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Parser.Models;
 
 namespace Parser.Repositories;
@@ -9,10 +8,13 @@ namespace Parser.Repositories;
 /// </summary>
 public class TokenStream
 {
+    /// <summary>Underlying token list provided by the <see cref="Tokenizer"/>.</summary>
     private readonly List<Token> _tokens = new();
+    /// <summary>Cursor (index of <see cref="Current"/>) and the saved cursor for <see cref="RollBack"/>.</summary>
     private int _currentPosition = 0, _rollBack = 0;
-    private readonly ILogger<TokenStream> _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<TokenStream>();
-    
+    /// <summary>Last token successfully consumed via <see cref="MoveNext"/>; surfaced in error messages when the next token is missing.</summary>
+    private Token? _lastToken = null;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="TokenStream"/> class.
     /// </summary>
@@ -21,22 +23,39 @@ public class TokenStream
     {
         _tokens = Tokens;
     }
+
     /// <summary>
     /// Gets the current token in the stream without consuming it.
     /// </summary>
     public Token? Current => (_currentPosition < _tokens.Count) ? _tokens[_currentPosition] : null;
+
+    /// <summary>
+    /// Gets the previous token (useful for error context).
+    /// </summary>
+    public Token? Previous => (_currentPosition > 0 && _currentPosition <= _tokens.Count)
+        ? _tokens[_currentPosition - 1]
+        : null;
+
     /// <summary>
     /// Advances the stream to the next token.
     /// </summary>
-    public void MoveNext() => _currentPosition++;
+    public void MoveNext()
+    {
+        if (Current != null)
+            _lastToken = Current;
+        _currentPosition++;
+    }
+
     /// <summary>
     /// Marks the current position for a potential rollback.
     /// </summary>
     public void SetRollBack() => _rollBack = _currentPosition;
+
     /// <summary>
     /// Resets the stream position to the last marked rollback point.
     /// </summary>
     public void RollBack() => _currentPosition = _rollBack;
+
     /// <summary>
     /// Checks if the current token matches the expected type. If it does, it consumes the token and returns true.
     /// </summary>
@@ -51,11 +70,13 @@ public class TokenStream
         }
         return false;
     }
+
     /// <summary>
     /// Checks if the end of the token stream has been reached.
     /// </summary>
     /// <returns>True if all tokens have been consumed, otherwise false.</returns>
     public bool EndStream() => _currentPosition >= _tokens.Count;
+
     /// <summary>
     /// Consumes the current token, throwing an exception if it does not match the expected type.
     /// </summary>
@@ -66,21 +87,130 @@ public class TokenStream
         if (!Match(ExpectedType))
         {
             if (Current?.Type == Constants.TYPE.UNKNOWN)
-            {
-                _logger.LogCritical($"Unknown token please check it out, skipping for simplicity: {Current?.Value}");
-                MoveNext();
-                return;
-            }
+                throw new ParserException(
+                    $"Unexpected token '{Current.Value}' — not a valid VHDL identifier, keyword, operator, or literal",
+                    Current);
 
-            throw new StreamerException($"Expected type: {ExpectedType}, found: {Current?.Type} -> {Current?.Value} at Line: {Current?.Line + 1}:{Current?.Col + 1}");
+            throw StreamerException.UnexpectedToken(ExpectedType, Current, _lastToken);
         }
     }
+
+    /// <summary>
+    /// Consumes the current token, throwing an exception with context if it does not match.
+    /// </summary>
+    /// <param name="ExpectedType">The expected token type.</param>
+    /// <param name="context">Additional context for the error message.</param>
+    public void Expect(Constants.TYPE ExpectedType, string context)
+    {
+        if (!Match(ExpectedType))
+        {
+            if (Current?.Type == Constants.TYPE.UNKNOWN)
+                throw new ParserException(
+                    $"Unexpected token '{Current.Value}' while parsing {context} — not a valid VHDL identifier, keyword, operator, or literal",
+                    Current);
+
+            throw StreamerException.UnexpectedToken(ExpectedType, Current, _lastToken, context);
+        }
+    }
+
     /// <summary>
     /// Custom exception for errors within the TokenStream.
+    /// Provides detailed error messages with line:col information.
     /// </summary>
-    internal class StreamerException : Exception
+    public class StreamerException : Exception
     {
+        /// <summary>Gets the line number where the error occurred (1-based).</summary>
+        public int Line { get; }
+
+        /// <summary>Gets the column number where the error occurred (1-based).</summary>
+        public int Column { get; }
+
+        /// <summary>Gets the expected token type.</summary>
+        public Constants.TYPE? ExpectedType { get; init; }
+
+        /// <summary>Gets the actual token that was found.</summary>
+        public Token? FoundToken { get; }
+
+        /// <summary>Creates a parser exception with no positional information.</summary>
+        /// <param name="message">Human-readable error message.</param>
         public StreamerException(string message) : base(message) { }
-        public override string ToString() => $"[VHDL Debugger Exception] : {this.Message}";
+
+        /// <summary>Creates a parser exception with explicit line/column information.</summary>
+        /// <param name="message">Human-readable error message.</param>
+        /// <param name="line">1-based line number where the error occurred.</param>
+        /// <param name="col">1-based column number where the error occurred.</param>
+        public StreamerException(string message, int line, int col) : base(message)
+        {
+            Line = line;
+            Column = col;
+        }
+
+        /// <summary>Creates a parser exception located at the given token.</summary>
+        /// <param name="message">Human-readable error message.</param>
+        /// <param name="token">Token whose <see cref="Token.Line"/> / <see cref="Token.Col"/> identify the error site.</param>
+        public StreamerException(string message, Token? token) : base(message)
+        {
+            FoundToken = token;
+            if (token != null)
+            {
+                Line = token.Line + 1;
+                Column = token.Col + 1;
+            }
+        }
+
+        /// <summary>Returns the message prefixed with the parser error tag for log surfaces.</summary>
+        public override string ToString() => $"[VHDL Parser Error] {Message}";
+
+        /// <summary>
+        /// Creates an exception for unexpected token errors with detailed context.
+        /// </summary>
+        public static StreamerException UnexpectedToken(Constants.TYPE expected, Token? found, Token? lastValid, string? context = null)
+        {
+            string message;
+
+            if (found == null)
+            {
+                // End of input reached unexpectedly
+                string location = lastValid != null
+                    ? $" after '{lastValid.Value}' at Line {lastValid.Line + 1}:{lastValid.Col + 1}"
+                    : "";
+                message = $"Unexpected end of input: expected {GetTypeDescription(expected)}{location}";
+                if (!string.IsNullOrEmpty(context))
+                    message += $" (while parsing {context})";
+                return new StreamerException(message, lastValid?.Line + 1 ?? 0, lastValid?.Col + 1 ?? 0);
+            }
+            else
+            {
+                // Wrong token type found
+                message = $"Expected {GetTypeDescription(expected)}, but found '{found.Value}' ({found.Type}) at Line {found.Line + 1}:{found.Col + 1}";
+                if (!string.IsNullOrEmpty(context))
+                    message += $" (while parsing {context})";
+                return new StreamerException(message, found)
+                {
+                    ExpectedType = expected
+                };
+            }
+        }
+
+        /// <summary>
+        /// Gets a human-readable description of a token type.
+        /// </summary>
+        private static string GetTypeDescription(Constants.TYPE type)
+        {
+            return type switch
+            {
+                Constants.TYPE.KEYWORDS => "keyword (e.g., 'process', 'signal', 'begin', 'end')",
+                Constants.TYPE.IDENTIFIERS => "identifier (variable/signal name)",
+                Constants.TYPE.OPERATORS => "operator (e.g., ':=', '<=', '+', '-')",
+                Constants.TYPE.LITERALS => "literal value (e.g., '0', \"1010\", x\"FF\")",
+                Constants.TYPE.PARENTHESIS => "parenthesis '(' or ')'",
+                Constants.TYPE.SEPARATORS => "separator (e.g., ',')",
+                Constants.TYPE.METHODS => "method call",
+                Constants.TYPE.TIME_VARIABLES => "time unit (e.g., 'ns', 'us', 'ms')",
+                Constants.TYPE.VECTORS_ATTRIBUTES => "vector attribute (e.g., 'high, 'low, 'length)",
+                Constants.TYPE.QUALIFIED_IDENTIFIERS => "qualified identifier (e.g., 'ieee.std_logic_1164')",
+                _ => type.ToString()
+            };
+        }
     }
 }
