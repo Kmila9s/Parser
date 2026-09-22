@@ -1,0 +1,8 @@
+stages: [test]
+
+  unit-test:
+    stage: test
+    image: mcr.microsoft.com/dotnet/sdk:9.0
+    script:
+      - dotnet --info
+      - dotnet test -c Release
