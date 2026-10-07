@@ -10,6 +10,9 @@ This module is a core component of **Kmila-9s**, a project officially titled "Ap
 **Version:** 1.3.0 (branch `v1.3.0`)
 **Last Updated:** 2026-08-03
 
+> **Docs sync 2026-09-24** — no functional change to this module this cycle; the
+> 2026-09-23 feature batch (v1.27.0) is **app-only** (see `App/Kmila/README.md` §19).
+
 ---
 
 ## 1. Project Overview
@@ -67,7 +70,7 @@ The parser is built with a modular, object-oriented design where different class
 
 *   **`Token.cs`**: Represents a single lexical unit from the source code. It contains its `Value` (e.g., "entity", "clk"), `Type` (e.g., `KEYWORDS`), and location (`Line`, `Col`).
 
-*   **`Variable.cs`**: A crucial class that represents any named object in VHDL (a signal, port, variable, or constant). It stores its `Name`, data `Type`, `Value`, and `Size`. It also includes an `OnValueChange` event to notify the simulation engine of updates. **2026-06-22 addition:** `ElementSize` + `ArrayLength` carry the per-element width and slot count for array-typed signals (e.g. `signal mem : rom_t` where `rom_t = array(0 to 7) of std_logic_vector(7 downto 0)` lands as `ElementSize=8`, `ArrayLength=8`). `DeferredIndex` / `DynamicIndex` consult these to slice element-wise on `mem(N)` reads — without them the indexer fell back to per-bit reads and returned garbage. **Watch out:** `Variable` overloads `operator==` to compare names (not references), so always use `is null` / `is not null` for reference checks.
+*   **`Variable.cs`**: A crucial class that represents any named object in VHDL (a signal, port, variable, or constant). It stores its `Name`, data `Type`, `Value`, and `Size`. It also includes an `OnValueChange` event to notify the simulation engine of updates. **2026-06-22 addition:** `ElementSize` + `ArrayLength` carry the per-element width and slot count for array-typed signals (e.g. `signal mem : rom_t` where `rom_t = array(0 to 7) of std_logic_vector(7 downto 0)` lands as `ElementSize=8`, `ArrayLength=8`). `DeferredIndex` / `DynamicIndex` consult these to slice element-wise on `mem(N)` reads — without them the indexer fell back to per-bit reads and returned garbage. **2026-10-06 addition (declared-range fix):** `LeftBound` / `RightBound` / `IsDownto` record a vector's declared range exactly as written (`(7 downto 0)` → left 7, right 0, downto; `(0 to 7)` → left 0, right 7, to), and the helpers `IndexToOffset(index, valueLength)` / `SliceToSpan(high, low, valueLength)` translate a VHDL index into a position in the MSB-first value string honouring that range. When the range is unset (`HasDeclaredRange == false`) they fall back to `valueLength-1-index`, i.e. the conventional `(Size-1 downto 0)` form, so legacy behaviour is byte-identical. This is what lets the engine resolve ascending (`0 to N`) and non-zero-low-bound (`15 downto 8`) vectors correctly instead of bit-reversing them. **Watch out:** `Variable` overloads `operator==` to compare names (not references), so always use `is null` / `is not null` for reference checks.
 
 *   **`Constants.cs`**: A static class that centralizes all constants used by the parser, including:
     *   `enum TYPE`: Defines all possible token types.
@@ -95,7 +98,7 @@ The parser supports a comprehensive set of VHDL language features:
 *   **Labeled Constructs**: Labeled processes, labeled generate statements, labeled component instantiations, labeled blocks
 *   **Functions**: Function declarations with parameters, local variables, return type bounds (including complex expressions), and complex expressions
 *   **Expressions**: Arithmetic (`+`, `-`, `*`, `/`, `mod`, `**`), logical (`and`, `or`, `xor`, `nand`, `nor`, `xnor`, `not`, `sll`, `srl`, `sla`, `sra`, `rol`, `ror`), comparison (`=`, `/=`, `<`, `>`, `<=`, `>=`)
-*   **Vector Operations**: Indexed access (e.g., `signal(7 downto 0)`, `signal(i)`), vector attributes (e.g., `A'length`, `A'range`, `A'high`, `A'low`, `A'left`, `A'right`, `A'event`, `A'last_value`, `A'stable`, `A'quiet`, `A'active`, `A'transaction`)
+*   **Vector Operations**: Indexed access (e.g., `signal(7 downto 0)`, `signal(i)`), vector attributes (e.g., `A'length`, `A'range`, `A'reverse_range`, `A'high`, `A'low`, `A'left`, `A'right`, `A'ascending`, `A'event`, `A'last_value`, `A'stable`, `A'quiet`, `A'active`, `A'transaction`) — `A'high`/`A'low`/`A'left`/`A'right`/`A'ascending` and `A'range` honour the declared `to`/`downto` direction and bounds (2026-10-06)
 *   **Data Types**: `std_logic`, `std_logic_vector`, `integer`, `boolean`, `bit`, `bit_vector`, `natural`, `positive`, `signed`, `unsigned`, `std_ulogic`, `std_ulogic_vector`, `boolean_vector`, `integer_vector`, `character`, `string`, `time`, `real`
 *   **Special Constructs**: `rising_edge`, `falling_edge`, aggregate expressions (e.g., `(others => '0')`), function calls in bounds (e.g., `clog2(N)`), concatenation operator (`&`), `after` timing specifications with time units (`fs`, `ps`, `ns`, `us`, `ms`, `sec`, `min`, `hr`)
 

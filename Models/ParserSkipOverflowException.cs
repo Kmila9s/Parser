@@ -22,6 +22,13 @@ public sealed class ParserSkipOverflowException : ParserException
     /// <summary>Optional token snippet showing what the loop was stuck on.</summary>
     public string TokenContext { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ParserSkipOverflowException"/> class.
+    /// </summary>
+    /// <param name="site">The parser site (routine) where the safety cap fired.</param>
+    /// <param name="cap">The iteration cap that was exceeded.</param>
+    /// <param name="sourceLine">The source line the parser was operating on.</param>
+    /// <param name="tokenContext">A token snippet showing what the loop was stuck on.</param>
     public ParserSkipOverflowException(string site, int cap, int sourceLine, string tokenContext)
         : base(
             $"Parser {site} exceeded {cap} iterations near source line {sourceLine}. " +

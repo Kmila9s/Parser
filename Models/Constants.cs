@@ -14,7 +14,7 @@ public class Constants{
         KEYWORDS,
         /// <summary>User-defined names for signals, variables, entities, etc. (e.g., clk, data_in).</summary>
         IDENTIFIERS,
-        /// <summary>Mathematical and logical operators (+, -, *, <=, :=, etc.).</summary>
+        /// <summary>Mathematical and logical operators (+, -, *, &lt;=, :=, etc.).</summary>
         OPERATORS,
         /// <summary>Constant values: numbers, strings, bit vectors (e.g., '0', "1010", 42).</summary>
         LITERALS,
@@ -253,136 +253,135 @@ public class Constants{
     /// <para>These regex patterns are used by the Tokenizer to classify each token.</para>
     /// <para>Order of evaluation matters - KEYWORDS should be checked before IDENTIFIERS.</para>
     /// </remarks>
-    public const string
     /// <summary>
     /// Matches all reserved VHDL keywords.
     /// Includes: structural (entity, architecture, component), control flow (if, case, for, while),
     /// types (std_logic, integer, boolean), operators (and, or, xor), and declarations (signal, variable, constant).
     /// </summary>
-    KEYWORDS = @"^(entity|port|end|architecture|begin|in|is|out|std_logic|and|or|not|xor|of|use|library|process|when|case|downto|std_logic_vector|others|signal|generic|integer|package|body|for|loop|variable|function|rising_edge|return|if|else|elsif|then|map|boolean|integer|range|to|bit|bit_vector|after|natural|positive|real|string|time|signed|unsigned|character|boolean_vector|integer_vector|std_ulogic|std_ulogic_vector|access|file|record|constant|attribute|group|disconnect|falling_edge|configuration|component|inOut|while|exit|wait|null|type|subtype|procedure|alias|generate|block|assert|report|severity|open|guarded|bus|all|new|impure|pure|shared|nand|nor|xnor|sll|srl|sla|sra|rol|ror|abs|rem|on|until|unaffected|transport|reject|inertial|with|select|label|units|buffer|linkage|literal|postponed|array|next)$",
+    public const string KEYWORDS = @"^(entity|port|end|architecture|begin|in|is|out|std_logic|and|or|not|xor|of|use|library|process|when|case|downto|std_logic_vector|others|signal|generic|integer|package|body|for|loop|variable|function|rising_edge|return|if|else|elsif|then|map|boolean|integer|range|to|bit|bit_vector|after|natural|positive|real|string|time|signed|unsigned|character|boolean_vector|integer_vector|std_ulogic|std_ulogic_vector|access|file|record|constant|attribute|group|disconnect|falling_edge|configuration|component|inOut|while|exit|wait|null|type|subtype|procedure|alias|generate|block|assert|report|severity|open|guarded|bus|all|new|impure|pure|shared|nand|nor|xnor|sll|srl|sla|sra|rol|ror|abs|rem|on|until|unaffected|transport|reject|inertial|with|select|label|units|buffer|linkage|literal|postponed|array|next)$";
     /// <summary>
     /// Matches std_logic_vector type declarations with bounds.
     /// Example: "signal foo : std_logic_vector(7 downto 0)"
     /// </summary>
-    VECTORS_IDENTIFIER = @".*\s[std_logic_vector|STD_LOGIC_VECTOR]\s?\(.+",
+    public const string VECTORS_IDENTIFIER = @".*\s[std_logic_vector|STD_LOGIC_VECTOR]\s?\(.+";
     /// <summary>
     /// Matches valid VHDL identifiers.
     /// Must start with letter or underscore, followed by letters, digits, or underscores.
     /// Examples: "clk", "data_in", "_internal", "counter_8bit"
     /// </summary>
-    IDENTIFIERS = @"^[_a-zA-Z][_a-zA-Z0-9]*$",
+    public const string IDENTIFIERS = @"^[_a-zA-Z][_a-zA-Z0-9]*$";
     /// <summary>
     /// Matches qualified (dot-separated) identifiers for package/library references.
     /// Examples: "work.my_package.my_type", "ieee.std_logic_1164.std_logic"
     /// </summary>
-    QUALIFIED_IDENTIFIERS = @"^[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z0-9]+)+$",
+    public const string QUALIFIED_IDENTIFIERS = @"^[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z0-9]+)+$";
     /// <summary>
     /// Matches function/procedure calls with arguments.
     /// Example: "conv_integer(signal_a, signal_b)"
     /// </summary>
-    METHODS = @"^\[_a-zA-Z][_a-zA-Z0-9]*([_a-zA-Z][_a-zA-Z0-9]*((\s?,[_a-zA-Z][_a-zA-Z0-9]*\s?)?)+\)",
+    public const string METHODS = @"^\[_a-zA-Z][_a-zA-Z0-9]*([_a-zA-Z][_a-zA-Z0-9]*((\s?,[_a-zA-Z][_a-zA-Z0-9]*\s?)?)+\)";
     /// <summary>
     /// Matches decimal or integer literals, including underscored notation.
     /// Examples: "42", "3.14", "1_000_000"
     /// </summary>
-    LITERAL_DECIMAL_OR_INTEGER = "[0-9]+(\\.[0-9]+)?|[0-9]+(_[0-9]+)*",
+    public const string LITERAL_DECIMAL_OR_INTEGER = "[0-9]+(\\.[0-9]+)?|[0-9]+(_[0-9]+)*";
     /// <summary>
     /// Matches double-quoted integer literals.
     /// Example: "\"123\""
     /// </summary>
-    LITERAL_QUOTED_INTEGER = "\"[0-9]+\"",
+    public const string LITERAL_QUOTED_INTEGER = "\"[0-9]+\"";
     /// <summary>
     /// Matches single-quoted integer literals.
     /// Example: "'5'"
     /// </summary>
-    LITERAL_SINGLE_QUOTED_INTEGER = "'[0-9]+'",
+    public const string LITERAL_SINGLE_QUOTED_INTEGER = "'[0-9]+'";
     /// <summary>
     /// Matches single-quoted character literals (std_logic values).
     /// Examples: "'0'", "'1'", "'Z'", "'X'"
     /// </summary>
-    LITERAL_STD_LOGIC_CHAR = "'.+'",
+    public const string LITERAL_STD_LOGIC_CHAR = "'.+'";
     /// <summary>
     /// Matches bit vector literals in quotes.
     /// Examples: "\"1010\"", "'11110000'"
     /// </summary>
-    LITERAL_STD_LOGIC_VECTOR = "(\".+\"|'.+')",
+    public const string LITERAL_STD_LOGIC_VECTOR = "(\".+\"|'.+')";
     /// <summary>
     /// Matches hexadecimal string literals.
     /// Examples: "x\"FF\"", "X\"DEADBEEF\""
     /// </summary>
-    LITERAL_HEX_STRING = "(x|X)\".+\"",
+    public const string LITERAL_HEX_STRING = "(x|X)\".+\"";
     /// <summary>
     /// Matches boolean literals.
     /// Values: "true", "false"
     /// </summary>
-    LITERAL_BOOLEAN = "true|false",
+    public const string LITERAL_BOOLEAN = "true|false";
     /// <summary>
     /// Matches std_logic single-bit literals.
     /// Valid values: '0', '1', 'U' (uninitialized), 'Z' (high-impedance)
     /// </summary>
-    LITERAL_STD_LOGIC = "('[0|1]'|\"[0|1]\"|'(U|u)'|\"(U|u)\"|'(Z|z)'|\"(Z|z)\")",
+    public const string LITERAL_STD_LOGIC = "('[0|1]'|\"[0|1]\"|'(U|u)'|\"(U|u)\"|'(Z|z)'|\"(Z|z)\")";
     /// <summary>
     /// Combined pattern for all literal types.
     /// </summary>
-    LITERALS = $"^({LITERAL_DECIMAL_OR_INTEGER}|{LITERAL_QUOTED_INTEGER}|{LITERAL_SINGLE_QUOTED_INTEGER}|{LITERAL_STD_LOGIC_CHAR}|{LITERAL_STD_LOGIC_VECTOR}|{LITERAL_HEX_STRING}|{LITERAL_BOOLEAN})$",
+    public const string LITERALS = $"^({LITERAL_DECIMAL_OR_INTEGER}|{LITERAL_QUOTED_INTEGER}|{LITERAL_SINGLE_QUOTED_INTEGER}|{LITERAL_STD_LOGIC_CHAR}|{LITERAL_STD_LOGIC_VECTOR}|{LITERAL_HEX_STRING}|{LITERAL_BOOLEAN})$";
     /// <summary>
     /// Matches list separators (comma).
     /// </summary>
-    SEPARATORS = "^(,)$",
+    public const string SEPARATORS = "^(,)$";
     /// <summary>
     /// Matches function calls with optional leading/trailing commas.
     /// </summary>
-    FUNCTIONS = @"^\,?[_a-zA-Z][_a-zA-Z0-9]*\(.+\)\,?$",
+    public const string FUNCTIONS = @"^\,?[_a-zA-Z][_a-zA-Z0-9]*\(.+\)\,?$";
     /// <summary>
     /// Matches VHDL operators including assignment, arithmetic, and comparison.
     /// Includes: &lt;=, :=, =&gt;, +, -, *, **, /, &amp;, ', /=, &lt;, &gt;, &gt;=, mod
     /// </summary>
-    OPERATORS = @"^((\<\=)|\:|\;|(\=\>)|\+|\-|\:\=|\=|(\*\*)|\*|\&|\'|(\/\=)|\/|\<|(\>\=)|\>|mod)$",
+    public const string OPERATORS = @"^((\<\=)|\:|\;|(\=\>)|\+|\-|\:\=|\=|(\*\*)|\*|\&|\'|(\/\=)|\/|\<|(\>\=)|\>|mod)$";
     /// <summary>
     /// Matches parentheses characters.
     /// </summary>
-    PARENTHESIS = @"^(\(|\))$",
+    public const string PARENTHESIS = @"^(\(|\))$";
     /// <summary>
     /// Matches special method calls (function with opening parenthesis).
     /// </summary>
-    SPECIAL_METHODS = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+",
+    public const string SPECIAL_METHODS = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+";
     /// <summary>
     /// Matches complete special method calls with closing parenthesis.
     /// </summary>
-    SPECIAL_METHODS2 = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+\)",
+    public const string SPECIAL_METHODS2 = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+\)";
     /// <summary>
     /// Matches VHDL time unit specifiers.
     /// fs=femtoseconds, ps=picoseconds, ns=nanoseconds, us=microseconds,
     /// ms=milliseconds, sec=seconds, min=minutes, hr=hours
     /// </summary>
-    TIME_VARIABLES = @"^(fs|ps|ns|us|ms|sec|min|hr)$",
+    public const string TIME_VARIABLES = @"^(fs|ps|ns|us|ms|sec|min|hr)$";
     /// <summary>
     /// Matches signal/variable attributes.
     /// Includes timing ('event, 'stable, 'delayed), range ('high, 'low, 'left, 'right, 'length, 'range),
     /// and introspection ('path_name, 'instance_name) attributes.
     /// </summary>
-    VECTORS_ATTRIBUTES = @"^[_a-zA-Z][_a-zA-Z0-9]*\'(last_value|last_event|last_active|event|stable|quiet|active|transaction|driving|driving_value|delayed|now|path_name|instance_name|base|high|low|left|right|length|range|reverse_range|ascending)",
+    public const string VECTORS_ATTRIBUTES = @"^[_a-zA-Z][_a-zA-Z0-9]*\'(last_value|last_event|last_active|event|stable|quiet|active|transaction|driving|driving_value|delayed|now|path_name|instance_name|base|high|low|left|right|length|range|reverse_range|ascending)";
     /// <summary>
     /// VHDL assignment operators. Anchored to prevent partial matches.
     /// &lt;= for signal assignment, := for variable assignment.
     /// </summary>
-    ASSIGNATION_OPERATORS = @"^((\<\=)|\:\=)$",
+    public const string ASSIGNATION_OPERATORS = @"^((\<\=)|\:\=)$";
     /// <summary>
     /// VHDL comparison operators. Anchored to prevent partial matches.
     /// =, /= (not equal), &lt;, &gt;, &lt;=, &gt;=
     /// </summary>
-    COMPARATION_OPERATORS = @"^(=|!=|/=|<|>|<=|>=)$",
+    public const string COMPARATION_OPERATORS = @"^(=|!=|/=|<|>|<=|>=)$";
     /// <summary>
     /// VHDL logical operators. Anchored to prevent partial matches (e.g., "or" in "memory").
     /// Includes: and, or, xor, nand, nor, xnor, not, abs
     /// Includes shift/rotate operators: sll, srl, sla, sra, rol, ror
     /// </summary>
-    LOGIC_OPERATORS = @"^(and|or|xor|nand|nor|not|xnor|abs|sll|srl|sla|sra|rol|ror)$",
+    public const string LOGIC_OPERATORS = @"^(and|or|xor|nand|nor|not|xnor|abs|sll|srl|sla|sra|rol|ror)$";
     /// <summary>
     /// VHDL arithmetic operators. Anchored to prevent partial matches.
     /// +, -, * (multiply), ** (power), / (divide), mod (modulo)
     /// </summary>
-    ARITH_OPERATORS = @"^(\+|\-|\*\*|\*|\/|mod)$";
+    public const string ARITH_OPERATORS = @"^(\+|\-|\*\*|\*|\/|mod)$";
 
     #endregion
 }

@@ -61,7 +61,7 @@ public class RangeParser : VectorParser {
         // Continue parsing arithmetic operations
         while(_streamer.Current?.Type == OPERATORS && _streamer.Current?.Value != ";" &&
               _streamer.Current?.Value != ":="){
-            string op = _streamer.Current.Value;
+            string op = _streamer.Current!.Value;
             if(op == "+" || op == "-" || op == "*" || op == "/"){
                 _streamer.Expect(OPERATORS);
                 if(_streamer.Current?.Type == IDENTIFIERS)
