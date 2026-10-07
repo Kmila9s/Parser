@@ -30,11 +30,17 @@ public static class ParseProfile
     private static long _tokenizerEvaluateTokenCount, _tokenizerEvaluateTokenTicks;
     private static long _syntetizeAssignationsCount, _syntetizeAssignationsTicks;
 
+    /// <summary>Number of Operation constructor invocations recorded.</summary>
     public static long OperationCtorCount => Interlocked.Read(ref _operationCtorCount);
+    /// <summary>Total time spent in Operation constructors, in milliseconds.</summary>
     public static long OperationCtorMs => TicksToMs(Interlocked.Read(ref _operationCtorTicks));
+    /// <summary>Number of tokenizer EvaluateToken calls recorded.</summary>
     public static long TokenizerEvaluateTokenCount => Interlocked.Read(ref _tokenizerEvaluateTokenCount);
+    /// <summary>Total time spent in tokenizer EvaluateToken, in milliseconds.</summary>
     public static long TokenizerEvaluateTokenMs => TicksToMs(Interlocked.Read(ref _tokenizerEvaluateTokenTicks));
+    /// <summary>Number of SyntetizeAssignations calls recorded.</summary>
     public static long SyntetizeAssignationsCount => Interlocked.Read(ref _syntetizeAssignationsCount);
+    /// <summary>Total time spent in SyntetizeAssignations, in milliseconds.</summary>
     public static long SyntetizeAssignationsMs => TicksToMs(Interlocked.Read(ref _syntetizeAssignationsTicks));
 
     /// <summary>Record a completed Operation constructor invocation.</summary>

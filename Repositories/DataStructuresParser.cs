@@ -809,8 +809,8 @@ public class DataStructuresParser : IParseStructures {
     }
     /// <summary>
     /// Parses signal or variable assignment statements.
-    /// Handles both simple assignments (signal <= value), indexed assignments (signal(index) <= value),
-    /// and record field assignments (record.field <= value).
+    /// Handles both simple assignments (signal &lt;= value), indexed assignments (signal(index) &lt;= value),
+    /// and record field assignments (record.field &lt;= value).
     /// </summary>
     private void ParseAsignations(){
         _logger.LogInformation("Parsing Assignations");

@@ -14,8 +14,10 @@ public class UserTypeRegistryTests
 {
     // The registry is a process-wide singleton — every test clears it first
     // so leakage from a previous test can't change suggestion outcomes.
+    /// <summary>Clears the shared registry so each test starts clean.</summary>
     public UserTypeRegistryTests() => UserTypeRegistry.Instance.Clear();
 
+    /// <summary>A misspelled user-defined type name yields the registered type as a suggestion.</summary>
     [Fact]
     public void FindTypoSuggestion_FallsBack_To_UserDefinedType()
     {
@@ -26,6 +28,7 @@ public class UserTypeRegistryTests
         Assert.Equal("coefficient_array_t", suggestion);
     }
 
+    /// <summary>A canonical built-in wins over a user type when it is the closer match.</summary>
     [Fact]
     public void FindTypoSuggestion_PrefersCloserMatch_Across_BuiltinsAndUserTypes()
     {
@@ -38,6 +41,7 @@ public class UserTypeRegistryTests
         Assert.Equal("std_logic", suggestion);
     }
 
+    /// <summary>An exact (case-insensitive) user-type match is not a typo and returns no suggestion.</summary>
     [Fact]
     public void FindTypoSuggestion_Returns_Null_For_Exact_UserType_Match()
     {
@@ -49,6 +53,7 @@ public class UserTypeRegistryTests
         Assert.Null(Constants.FindTypoSuggestion("COEFFICIENT_ARRAY_T"));
     }
 
+    /// <summary>A token unlike any built-in or user type returns no suggestion.</summary>
     [Fact]
     public void FindTypoSuggestion_Returns_Null_When_Too_Far_From_Both_Sets()
     {
@@ -58,6 +63,7 @@ public class UserTypeRegistryTests
         Assert.Null(Constants.FindTypoSuggestion("widget"));
     }
 
+    /// <summary>Clearing the registry removes every previously registered type.</summary>
     [Fact]
     public void Clear_Drops_All_Registered_Types()
     {
@@ -72,6 +78,7 @@ public class UserTypeRegistryTests
         Assert.Empty(UserTypeRegistry.Instance.All);
     }
 
+    /// <summary>Registration is case-insensitive and ignores empty or whitespace names.</summary>
     [Fact]
     public void Register_Is_CaseInsensitive_And_NoOp_For_Empty()
     {

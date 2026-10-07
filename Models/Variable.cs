@@ -64,6 +64,72 @@ public class Variable {
     /// 0 for non-array variables.
     /// </summary>
     public int ArrayLength { get; set; } = 0;
+
+    /// <summary>
+    /// Declared range left bound (VHDL <c>'left</c>) — the index of the leftmost
+    /// element of the declaration, e.g. 7 for <c>(7 downto 0)</c> or 0 for
+    /// <c>(0 to 7)</c>. <c>null</c> means the declared range was never recorded;
+    /// callers then fall back to the conventional <c>(Size-1 downto 0)</c> form.
+    /// Range bug fix (2026-10): stored so index/slice/attribute resolution honours
+    /// ascending (<c>to</c>) and non-zero-low-bound ranges instead of assuming
+    /// 0-based descending.
+    /// </summary>
+    public int? LeftBound { get; set; } = null;
+
+    /// <summary>Declared range right bound (VHDL <c>'right</c>). See <see cref="LeftBound"/>.</summary>
+    public int? RightBound { get; set; } = null;
+
+    /// <summary>
+    /// Declared range direction: <c>true</c> for <c>downto</c> (the default),
+    /// <c>false</c> for <c>to</c>. Only meaningful once <see cref="HasDeclaredRange"/>.
+    /// </summary>
+    public bool IsDownto { get; set; } = true;
+
+    /// <summary>True when an explicit declared range (both bounds) has been recorded.</summary>
+    public bool HasDeclaredRange => LeftBound.HasValue && RightBound.HasValue;
+
+    /// <summary>
+    /// Records the declared range on this variable. Pass the left bound, right
+    /// bound and direction exactly as written in VHDL (e.g. <c>(7, 0, true)</c>
+    /// for <c>(7 downto 0)</c>, <c>(0, 7, false)</c> for <c>(0 to 7)</c>).
+    /// </summary>
+    public void SetDeclaredRange(int left, int right, bool isDownto)
+    {
+        LeftBound = left;
+        RightBound = right;
+        IsDownto = isDownto;
+    }
+
+    /// <summary>
+    /// Maps a VHDL index into a 0-based position in the MSB-first value string.
+    /// With a recorded range: descending → <c>left - index</c>; ascending →
+    /// <c>index - left</c>. Without one, falls back to <c>valueLength-1-index</c>,
+    /// which is byte-identical to the legacy behaviour for <c>(N-1 downto 0)</c>
+    /// vectors — so only <c>to</c>/offset ranges change. <paramref name="valueLength"/>
+    /// is the current length of the value string the offset indexes into.
+    /// </summary>
+    public int IndexToOffset(int index, int valueLength)
+    {
+        if (HasDeclaredRange)
+            return IsDownto ? (LeftBound!.Value - index) : (index - LeftBound!.Value);
+        return valueLength - 1 - index;
+    }
+
+    /// <summary>
+    /// For a VHDL slice with bounds <paramref name="high"/> (numerically larger)
+    /// and <paramref name="low"/> (numerically smaller), returns the start
+    /// position in the MSB-first value string and the slice width. The start is
+    /// whichever bound maps to the smaller storage offset, so the extracted
+    /// substring stays in declaration (left-to-right) order for both directions.
+    /// </summary>
+    public (int startPos, int width) SliceToSpan(int high, int low, int valueLength)
+    {
+        int width = Math.Abs(high - low) + 1;
+        int offHigh = IndexToOffset(high, valueLength);
+        int offLow = IndexToOffset(low, valueLength);
+        return (Math.Min(offHigh, offLow), width);
+    }
+
     private DATATYPES _dataType = DATATYPES.UNKNOWN;
     /// <summary>
     /// Gets or sets the data type of the variable.
