@@ -13,5 +13,4 @@ architecture Behavioral of Full_Adder is
 begin
     Sum <= A xor B xor Cin;
     Cout <= (A and B) or (Cin and (A xor B));
-    cin <= ((A and B) OR (Cin AND ((A AND B) OR C AND B)));
 end Behavioral;
