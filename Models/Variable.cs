@@ -42,6 +42,15 @@ public class Variable {
     public string? CustomTypeName { get; set; } = null;
 
     /// <summary>
+    /// The name of the user-defined ENUMERATION type this signal/variable was
+    /// declared with (e.g. `state_type`), or null if not an enum. Kept separate
+    /// from <see cref="CustomTypeName"/> (which gates record/array handling and the
+    /// case numeric/exhaustiveness checks) so enum typing never disturbs those.
+    /// Used by the type-precise cross-enum case check (precise-C10).
+    /// </summary>
+    public string? EnumTypeName { get; set; } = null;
+
+    /// <summary>
     /// Gets or sets the record field values for record type variables.
     /// Keys are field names, values are the field values.
     /// v0.15.0: Added to support record types.
