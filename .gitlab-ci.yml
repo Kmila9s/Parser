@@ -10,8 +10,8 @@ stages:
   - fanout
 unit-test:
     stage: test
-    image: mcr.microsoft.com/dotnet/sdk:9.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     script:
       - dotnet --info
       - dotnet workload install maui-android
-      - dotnet run -f net9.0
+      - dotnet run -f net10.0
