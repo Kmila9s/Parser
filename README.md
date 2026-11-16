@@ -53,6 +53,16 @@ production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
 
+### Version 3.0.6 (2026-11-16) — FE-8
+
+*   New `Models/VhdlText`: `LineCommentStart` / `StripLineComment` /
+    `StripLineComments` / `BlankLineComments` / `MaskStringLiterals`, the
+    single string-aware home for VHDL comment and string-literal handling.
+    The tokenizer, the Debugger parser and lint, `SourceElaborator`,
+    `PackageSubtypeScanner`, `LibraryBuilder`, `VhdlLibraryPreparer`,
+    `VhdlBlockBuilder` and the replay services use it instead of their own
+    copies (six of which cut `--` inside string literals).
+
 ### Version 3.0.4 (2026-11-16) — GAP-PAR-001
 
 *   `Tokenizer.NormalizeLiterals` (was `ConvertBasedLiterals`) also drops the
