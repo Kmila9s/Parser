@@ -180,16 +180,10 @@ public class Tokenizer{
     private List<string> TokenizeSpaces(string line){
         try{
             line = line.Trim();
-            if(line.StartsWith("--") || line.StartsWith("//")) return new();
+            if(line.StartsWith("//")) return new();
+            // Line comment out, but never a `--` inside a string literal (F-G-12a).
+            line = VhdlText.StripLineComment(line);
             if(String.IsNullOrEmpty(line)) return new();
-            // F-G-12a (2026-07-18): strip a `-- ...` trailing line comment
-            // but ONLY when the `--` lives outside a string literal. The
-            // previous unconditional split truncated `report "-------- "`
-            // at the first `--` inside the message, dropping the rest of
-            // the string and silently losing any downstream report /
-            // assert whose text contained `--`.
-            int cutoff = FindTrailingLineCommentStart(line);
-            if (cutoff >= 0) line = line.Substring(0, cutoff);
             line = line.Replace("\t", "");
             return line
                     .Trim()
@@ -202,22 +196,6 @@ public class Tokenizer{
         return new();
     }
 
-    /// <summary>
-    /// F-G-12a (2026-07-18): returns the byte index of a `--` line-comment
-    /// start OUTSIDE any string literal, or -1 if none. Strings don't span
-    /// lines in VHDL, so a single per-line `"` toggle is sufficient.
-    /// </summary>
-    private static int FindTrailingLineCommentStart(string line)
-    {
-        bool insideString = false;
-        for (int i = 0; i < line.Length - 1; i++)
-        {
-            char c = line[i];
-            if (c == '"') { insideString = !insideString; continue; }
-            if (!insideString && c == '-' && line[i + 1] == '-') return i;
-        }
-        return -1;
-    }
     /// <summary>
     /// Splits a token by special characters (e.g., ':=', ';', '(').
     /// </summary>
