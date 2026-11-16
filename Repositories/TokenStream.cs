@@ -71,11 +71,6 @@ public class TokenStream
         return false;
     }
 
-    /// <summary>
-    /// Checks if the end of the token stream has been reached.
-    /// </summary>
-    /// <returns>True if all tokens have been consumed, otherwise false.</returns>
-    public bool EndStream() => _currentPosition >= _tokens.Count;
 
     /// <summary>
     /// Consumes the current token, throwing an exception if it does not match the expected type.

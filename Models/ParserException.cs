@@ -158,17 +158,6 @@ public class ParserException : Exception
     }
 
     /// <summary>
-    /// Creates an exception for unexpected token errors.
-    /// </summary>
-    public static ParserException UnexpectedToken(string expected, Token? found)
-    {
-        string foundDesc = found != null
-            ? $"'{found.Value}' ({found.Type})"
-            : "end of input";
-        return new ParserException($"Expected {expected}, but found {foundDesc}", found);
-    }
-
-    /// <summary>
     /// Creates an exception for undeclared variable errors.
     /// </summary>
     public static ParserException UndeclaredVariable(string varName, Token? token)

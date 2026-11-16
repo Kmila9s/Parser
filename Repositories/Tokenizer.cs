@@ -7,17 +7,13 @@ using System.Text.RegularExpressions;
 namespace Parser.Repositories;
 
 /// <summary>
-/// Responsible for reading VHDL source code (from a file or string) and converting it into a sequence of tokens.
+/// Responsible for reading VHDL source code (from a string) and converting it into a sequence of tokens.
 /// </summary>
 public class Tokenizer{
-    /// <summary>Mutex reserved for future thread-safe usage of the tokenizer instance.</summary>
-    private object _lock = new();
     /// <summary>
     /// Gets the last error message that occurred during tokenization.
     /// </summary>
     public string LastError { get; private set; }
-    /// <summary>Path of the VHDL file currently being tokenized; empty when tokenizing a raw string.</summary>
-    private string _filePath = string.Empty;
     /// <summary>Per-line buckets of raw token strings paired with the originating 0-based line index.</summary>
     private List<(List<string>, int)> _tokens;
     /// <summary>Final classified token list, populated by <see cref="Evaluate"/>.</summary>
@@ -33,7 +29,7 @@ public class Tokenizer{
     /// static-readonly. Each Regex here uses <see cref="RegexOptions.Compiled"/>
     /// which IL-emits the state machine on first construction; the
     /// pre-pass-5 shape allocated all 10 regexes per <c>new Tokenizer(...)</c>
-    /// call. Because <c>Operation..ctor</c> calls <c>new Tokenizer(string.Empty)</c>
+    /// call. Because <c>Operation..ctor</c> calls <c>new Tokenizer()</c>
     /// on every concurrent assignment, the elaborated capstone paid
     /// hundreds × 10 compile-to-IL passes before the delta engine even
     /// started. Static fields collapse this to 10 one-shot compilations
@@ -52,21 +48,17 @@ public class Tokenizer{
     private static readonly Regex _functionsRegex = new(Constants.FUNCTIONS, _regexCompiled);
     private static readonly Regex _timeRegex = new(Constants.TIME_VARIABLES, RegexOptions.IgnoreCase);
     private static readonly Regex _vectorAttributes = new(Constants.VECTORS_ATTRIBUTES, _regexCompiled);
-    /// <summary>Current 0-based line index being processed; advanced by <see cref="ReadFile"/> / <see cref="ReadString"/>.</summary>
+    /// <summary>Current 0-based line index being processed; advanced by <see cref="ReadString"/>.</summary>
     private int _currentLine = 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Tokenizer"/> class.
     /// </summary>
-    /// <param name="FilePath">The path to the VHDL file to be tokenized.</param>
-    public Tokenizer(string FilePath)
+    public Tokenizer()
     {
         LastError = "";
         _tokens = new();
         _typeDictionary = new();
-        _filePath = FilePath;
-        if (!String.IsNullOrEmpty(_filePath))
-            ReadFile(FilePath);
     }
     /// <summary>
     /// Tokenizes a single line of VHDL code provided as a string.
@@ -77,27 +69,6 @@ public class Tokenizer{
         _currentLine = 0;
         TokenizeLine(RawData);
     } 
-    /// <summary>
-    /// Reads and tokenizes an entire VHDL file.
-    /// </summary>
-    /// <param name="FilePath">The path to the VHDL file.</param>
-    public void ReadFile(string FilePath)
-    {
-        _currentLine = 0;
-        using StreamReader reader = new(FilePath);
-        var line = reader.ReadLine();
-        if (line != null)
-        {
-            var begin = DateTime.Now;
-            while (line != null)
-            {
-                TokenizeLine(line.Trim());
-                line = reader.ReadLine();
-            }
-            Evaluate();
-            //Console.WriteLine($"Total time: {timeDelta}");
-        }
-    }
     /// <summary>
     /// Gets the list of classified tokens.
     /// </summary>
