@@ -20,6 +20,9 @@ public sealed class ValidationException : ParserException
     /// <summary>Message + 0-based token location (converted to 1-based like the base).</summary>
     public ValidationException(string message, Token? token) : base(message, token) { }
 
-    /// <summary>Message + explicit 1-based line/column.</summary>
-    public ValidationException(string message, int line, int col) : base(message, line, col) { }
+    /// <summary>
+    /// Message + explicit 1-based line/column, optionally with the offending
+    /// name (lets diagnostics find its real column).
+    /// </summary>
+    public ValidationException(string message, int line, int col, string? context = null) : base(message, line, col, context) { }
 }

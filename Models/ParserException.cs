@@ -6,7 +6,7 @@ using static Parser.Models.Constants.ParseExceptions;
 /// Represents errors that occur during VHDL parsing.
 /// Provides detailed error messages with line:col information and context.
 /// </summary>
-public class ParserException : Exception
+public class ParserException : Exception, ISourcePosition
 {
     /// <summary>Gets the line number where the error occurred (1-based).</summary>
     public int Line { get; }
@@ -123,7 +123,7 @@ public class ParserException : Exception
     /// </summary>
     private static string FormatMessage(string message, int line, int col, string? context)
     {
-        string location = line > 0 ? $" at Line {line}:{col}" : "";
+        string location = line <= 0 ? "" : col > 0 ? $" at Line {line}:{col}" : $" at Line {line}";
         string contextStr = !string.IsNullOrEmpty(context) ? $" (near '{context}')" : "";
         return $"{message}{location}{contextStr}";
     }

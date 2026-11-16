@@ -53,6 +53,14 @@ production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
 
+### Version 3.1.0 (2026-11-16) — positioned errors
+
+*   `ISourcePosition` (Line/Column), implemented by `ParserException` and
+    `StreamerException`; `Diagnostic.FromAnyException` turns any analysis
+    failure into a diagnostic that keeps its position (no reflection).
+*   `ParserException` no longer prints `:0` when the column is unknown;
+    `ValidationException` takes the offending name as context.
+
 ### Version 3.0.6 (2026-11-16) — FE-8
 
 *   New `Models/VhdlText`: `LineCommentStart` / `StripLineComment` /
