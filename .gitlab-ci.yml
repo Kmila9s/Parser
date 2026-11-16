@@ -14,4 +14,5 @@ unit-test:
     script:
       - dotnet --info
       - dotnet workload install maui-android
-      - dotnet run -f net10.0
+      # Parser is a library (v3.0.1): its tests live in Tests/Unit/Kmila.Engine.Tests.
+      - dotnet build -f net10.0 -c Release

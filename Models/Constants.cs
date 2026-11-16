@@ -108,33 +108,6 @@ public class Constants{
         BUFFER
     }
     /// <summary>
-    /// Converts a string representation of a data type to its corresponding DATATYPES enum value.
-    /// </summary>
-    /// <param name="value">The string value of the data type.</param>
-    /// <returns>The <see cref="DATATYPES"/> enum member.</returns>
-    public static DATATYPES GetDatatype(string value){
-        value = value.ToLower();
-        switch(value){
-            case "std_logic":
-                return DATATYPES.STD_LOGIC;
-            case "std_logic_vector":
-                return DATATYPES.STD_LOGIC_VECTOR;
-            case "range":
-                return DATATYPES.RANGE;
-            case "bit":
-                return DATATYPES.BIT;
-            case "boolean":
-                return DATATYPES.BOOLEAN;
-            case "integer":
-                return DATATYPES.INTEGER;
-            case "natural":
-                return DATATYPES.NATURAL;
-            default:
-                return DATATYPES.UNKNOWN;
-        }
-    }
-
-    /// <summary>
     /// Canonical names of the standard VHDL types the port parser recognises.
     /// Used by <see cref="FindTypoSuggestion"/> to surface "did you mean …"
     /// when the user writes a near-match like <c>STDLOGIC</c> (missing the
@@ -142,8 +115,8 @@ public class Constants{
     /// </summary>
     /// <remarks>
     /// Comparison is case-insensitive — VHDL identifiers are case-folded.
-    /// The set is intentionally broader than <see cref="GetDatatype"/>'s
-    /// switch so user typos for types Kmila doesn't yet model internally
+    /// The set is intentionally broader than <see cref="Variable.GetDatatype"/>'s
+    /// mapping so user typos for types Kmila doesn't yet model internally
     /// (e.g. <c>unsigned</c>, <c>signed</c>) still get a helpful hint.
     /// </remarks>
     public static readonly HashSet<string> KNOWN_TYPE_NAMES = new(StringComparer.OrdinalIgnoreCase)
@@ -236,12 +209,6 @@ public class Constants{
         "(", ")", "{", "}", "[", "]", ",", ";", "-", "+", "*", "/", "%", "#", "!", "@", "$", "^", "&",
         "=", ":", "<", ">", "?", "|"
     };
-    /// <summary>
-    /// A set of operators valid within an 'if' statement condition.
-    /// </summary>
-    public static HashSet<string> IF_OPERATORS = new(){
-        "=", "+", "-", "/", "*", "<", ">", "<=", ">=", "/="
-    };
 
     #region Regular Expressions for Token Classification
 
@@ -260,11 +227,6 @@ public class Constants{
     /// </summary>
     public const string KEYWORDS = @"^(entity|port|end|architecture|begin|in|is|out|std_logic|and|or|not|xor|of|use|library|process|when|case|downto|std_logic_vector|others|signal|generic|integer|package|body|for|loop|variable|function|rising_edge|return|if|else|elsif|then|map|boolean|integer|range|to|bit|bit_vector|after|natural|positive|real|string|time|signed|unsigned|character|boolean_vector|integer_vector|std_ulogic|std_ulogic_vector|access|file|record|constant|attribute|group|disconnect|falling_edge|configuration|component|inOut|while|exit|wait|null|type|subtype|procedure|alias|generate|block|assert|report|severity|open|guarded|bus|all|new|impure|pure|shared|nand|nor|xnor|sll|srl|sla|sra|rol|ror|abs|rem|on|until|unaffected|transport|reject|inertial|with|select|label|units|buffer|linkage|literal|postponed|array|next)$";
     /// <summary>
-    /// Matches std_logic_vector type declarations with bounds.
-    /// Example: "signal foo : std_logic_vector(7 downto 0)"
-    /// </summary>
-    public const string VECTORS_IDENTIFIER = @".*\s[std_logic_vector|STD_LOGIC_VECTOR]\s?\(.+";
-    /// <summary>
     /// Matches valid VHDL identifiers.
     /// Must start with letter or underscore, followed by letters, digits, or underscores.
     /// Examples: "clk", "data_in", "_internal", "counter_8bit"
@@ -275,11 +237,6 @@ public class Constants{
     /// Examples: "work.my_package.my_type", "ieee.std_logic_1164.std_logic"
     /// </summary>
     public const string QUALIFIED_IDENTIFIERS = @"^[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z0-9]+)+$";
-    /// <summary>
-    /// Matches function/procedure calls with arguments.
-    /// Example: "conv_integer(signal_a, signal_b)"
-    /// </summary>
-    public const string METHODS = @"^\[_a-zA-Z][_a-zA-Z0-9]*([_a-zA-Z][_a-zA-Z0-9]*((\s?,[_a-zA-Z][_a-zA-Z0-9]*\s?)?)+\)";
     /// <summary>
     /// Matches decimal or integer literals, including underscored notation.
     /// Examples: "42", "3.14", "1_000_000"
@@ -341,14 +298,6 @@ public class Constants{
     /// Matches parentheses characters.
     /// </summary>
     public const string PARENTHESIS = @"^(\(|\))$";
-    /// <summary>
-    /// Matches special method calls (function with opening parenthesis).
-    /// </summary>
-    public const string SPECIAL_METHODS = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+";
-    /// <summary>
-    /// Matches complete special method calls with closing parenthesis.
-    /// </summary>
-    public const string SPECIAL_METHODS2 = @"[_a-zA-Z]+[_a-zA-Z0-9]*\(.+\)";
     /// <summary>
     /// Matches VHDL time unit specifiers.
     /// fs=femtoseconds, ps=picoseconds, ns=nanoseconds, us=microseconds,

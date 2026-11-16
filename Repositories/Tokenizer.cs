@@ -7,17 +7,13 @@ using System.Text.RegularExpressions;
 namespace Parser.Repositories;
 
 /// <summary>
-/// Responsible for reading VHDL source code (from a file or string) and converting it into a sequence of tokens.
+/// Responsible for reading VHDL source code (from a string) and converting it into a sequence of tokens.
 /// </summary>
 public class Tokenizer{
-    /// <summary>Mutex reserved for future thread-safe usage of the tokenizer instance.</summary>
-    private object _lock = new();
     /// <summary>
     /// Gets the last error message that occurred during tokenization.
     /// </summary>
     public string LastError { get; private set; }
-    /// <summary>Path of the VHDL file currently being tokenized; empty when tokenizing a raw string.</summary>
-    private string _filePath = string.Empty;
     /// <summary>Per-line buckets of raw token strings paired with the originating 0-based line index.</summary>
     private List<(List<string>, int)> _tokens;
     /// <summary>Final classified token list, populated by <see cref="Evaluate"/>.</summary>
@@ -33,7 +29,7 @@ public class Tokenizer{
     /// static-readonly. Each Regex here uses <see cref="RegexOptions.Compiled"/>
     /// which IL-emits the state machine on first construction; the
     /// pre-pass-5 shape allocated all 10 regexes per <c>new Tokenizer(...)</c>
-    /// call. Because <c>Operation..ctor</c> calls <c>new Tokenizer(string.Empty)</c>
+    /// call. Because <c>Operation..ctor</c> calls <c>new Tokenizer()</c>
     /// on every concurrent assignment, the elaborated capstone paid
     /// hundreds × 10 compile-to-IL passes before the delta engine even
     /// started. Static fields collapse this to 10 one-shot compilations
@@ -52,21 +48,17 @@ public class Tokenizer{
     private static readonly Regex _functionsRegex = new(Constants.FUNCTIONS, _regexCompiled);
     private static readonly Regex _timeRegex = new(Constants.TIME_VARIABLES, RegexOptions.IgnoreCase);
     private static readonly Regex _vectorAttributes = new(Constants.VECTORS_ATTRIBUTES, _regexCompiled);
-    /// <summary>Current 0-based line index being processed; advanced by <see cref="ReadFile"/> / <see cref="ReadString"/>.</summary>
+    /// <summary>Current 0-based line index being processed; advanced by <see cref="ReadString"/>.</summary>
     private int _currentLine = 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Tokenizer"/> class.
     /// </summary>
-    /// <param name="FilePath">The path to the VHDL file to be tokenized.</param>
-    public Tokenizer(string FilePath)
+    public Tokenizer()
     {
         LastError = "";
         _tokens = new();
         _typeDictionary = new();
-        _filePath = FilePath;
-        if (!String.IsNullOrEmpty(_filePath))
-            ReadFile(FilePath);
     }
     /// <summary>
     /// Tokenizes a single line of VHDL code provided as a string.
@@ -78,27 +70,6 @@ public class Tokenizer{
         TokenizeLine(RawData);
     } 
     /// <summary>
-    /// Reads and tokenizes an entire VHDL file.
-    /// </summary>
-    /// <param name="FilePath">The path to the VHDL file.</param>
-    public void ReadFile(string FilePath)
-    {
-        _currentLine = 0;
-        using StreamReader reader = new(FilePath);
-        var line = reader.ReadLine();
-        if (line != null)
-        {
-            var begin = DateTime.Now;
-            while (line != null)
-            {
-                TokenizeLine(line.Trim());
-                line = reader.ReadLine();
-            }
-            Evaluate();
-            //Console.WriteLine($"Total time: {timeDelta}");
-        }
-    }
-    /// <summary>
     /// Gets the list of classified tokens.
     /// </summary>
     /// <returns>A list of <see cref="Token"/> objects.</returns>
@@ -109,7 +80,7 @@ public class Tokenizer{
     /// <param name="line">The line of code to tokenize.</param>
     public void TokenizeLine(string line){
         List<string> tokens = new();
-        line = ConvertBasedLiterals(line);
+        line = NormalizeLiterals(line);
         var preTokens = TokenizeSpaces(line.Trim());
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.Add((tokens, _currentLine ++));
@@ -129,20 +100,42 @@ public class Tokenizer{
             System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>
-    /// Rewrites VHDL based-integer literals inline. Bases 2..16 are
-    /// supported; underscores inside the digit run are ignored (VHDL
-    /// allows them as visual separators).
+    /// Matches VHDL bit-string literals with a base specifier — <c>B"…"</c>,
+    /// <c>O"…"</c>, <c>X"…"</c> (any case). IEEE 1076 allows underscores between
+    /// their digits as visual separators (e.g. <c>x"3243_1DAC"</c>).
     /// </summary>
-    private static string ConvertBasedLiterals(string line)
+    private static readonly System.Text.RegularExpressions.Regex BitStringLiteralRe =
+        new(@"(?<![\w""])(?<base>[bBoOxX])""(?<digits>[0-9A-Fa-f_]*)""",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Rewrites literal forms the token classifier can't take as written:
+    /// based integers (bases 2..16) become their decimal value, and the
+    /// separator underscores of bit-string literals are dropped. Both keep
+    /// the literal's meaning; this is the single place every consumer of
+    /// literal tokens (synthesis, case choices, engine) benefits from.
+    /// </summary>
+    private static string NormalizeLiterals(string line)
     {
-        if (string.IsNullOrEmpty(line) || !line.Contains('#')) return line;
-        return BasedLiteralRe.Replace(line, m =>
+        if (string.IsNullOrEmpty(line)) return line;
+        if (line.Contains('#'))
         {
-            if (!int.TryParse(m.Groups["base"].Value, out var b) || b < 2 || b > 16) return m.Value;
-            var digits = m.Groups["digits"].Value.Replace("_", string.Empty);
-            try { return Convert.ToInt64(digits, b).ToString(System.Globalization.CultureInfo.InvariantCulture); }
-            catch { return m.Value; }
-        });
+            line = BasedLiteralRe.Replace(line, m =>
+            {
+                if (!int.TryParse(m.Groups["base"].Value, out var b) || b < 2 || b > 16) return m.Value;
+                var digits = m.Groups["digits"].Value.Replace("_", string.Empty);
+                try { return Convert.ToInt64(digits, b).ToString(System.Globalization.CultureInfo.InvariantCulture); }
+                catch { return m.Value; }
+            });
+        }
+        if (line.Contains('_') && line.Contains('"'))
+        {
+            line = BitStringLiteralRe.Replace(line, m =>
+                m.Groups["digits"].Value.Contains('_')
+                    ? $"{m.Groups["base"].Value}\"{m.Groups["digits"].Value.Replace("_", string.Empty)}\""
+                    : m.Value);
+        }
+        return line;
     }
 
     /// <summary>
@@ -161,7 +154,7 @@ public class Tokenizer{
     /// </param>
     public void TokenizeLineAt(string line, int sourceLineZeroBased){
         List<string> tokens = new();
-        line = ConvertBasedLiterals(line);
+        line = NormalizeLiterals(line);
         var preTokens = TokenizeSpaces(line.Trim());
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.Add((tokens, sourceLineZeroBased));
@@ -176,7 +169,7 @@ public class Tokenizer{
     /// <returns>An array of string tokens.</returns>
     public string[] TokenizeLineReturn(string line){
         List<string> tokens = new();
-        line = ConvertBasedLiterals(line);
+        line = NormalizeLiterals(line);
         var preTokens = TokenizeSpaces(line);
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token));
         return tokens.ToArray();
