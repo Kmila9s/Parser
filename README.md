@@ -7,8 +7,8 @@ This module is a core component of **Kmila-9s**, a project officially titled "Ap
 **Author:** Ulrich Tamayo Daniel  
 **Email:** dulricht1700@alumno.ipn.mx
 **Email 2:** danielulrichtamayo@gmail.com
-**Version:** 3.0.1 (branch `v3.0.1`)
-**Last Updated:** 2026-11-15
+**Version:** 3.0.4 (branch `v3.0.4`)
+**Last Updated:** 2026-11-16
 
 > **Docs sync 2026-09-24** — no functional change to this module this cycle; the
 > 2026-09-23 feature batch (v1.27.0) is **app-only** (see `App/Kmila/README.md` §19).
@@ -52,6 +52,15 @@ variable ranges, and the former `test*.vhdl` corpus — now parsed through the
 production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
+
+### Version 3.0.4 (2026-11-16) — GAP-PAR-001
+
+*   `Tokenizer.NormalizeLiterals` (was `ConvertBasedLiterals`) also drops the
+    separator underscores of bit-string literals with a base specifier —
+    `x"3243_1DAC"`, `b"1010_0101"`, `O"7_7"` (IEEE 1076 §15.8). Done at token
+    level so every consumer (synthesis, case choices, engine) sees plain
+    digits; string literals and identifiers keep their underscores.
+    `test40.vhdl` (CORDIC ROM) now parses unmodified.
 
 ### Version 3.0.1 (2026-11-15) — multi-HDL Phase 0, dead-code stage
 

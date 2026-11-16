@@ -80,7 +80,7 @@ public class Tokenizer{
     /// <param name="line">The line of code to tokenize.</param>
     public void TokenizeLine(string line){
         List<string> tokens = new();
-        line = ConvertBasedLiterals(line);
+        line = NormalizeLiterals(line);
         var preTokens = TokenizeSpaces(line.Trim());
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.Add((tokens, _currentLine ++));
@@ -100,20 +100,42 @@ public class Tokenizer{
             System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>
-    /// Rewrites VHDL based-integer literals inline. Bases 2..16 are
-    /// supported; underscores inside the digit run are ignored (VHDL
-    /// allows them as visual separators).
+    /// Matches VHDL bit-string literals with a base specifier — <c>B"…"</c>,
+    /// <c>O"…"</c>, <c>X"…"</c> (any case). IEEE 1076 allows underscores between
+    /// their digits as visual separators (e.g. <c>x"3243_1DAC"</c>).
     /// </summary>
-    private static string ConvertBasedLiterals(string line)
+    private static readonly System.Text.RegularExpressions.Regex BitStringLiteralRe =
+        new(@"(?<![\w""])(?<base>[bBoOxX])""(?<digits>[0-9A-Fa-f_]*)""",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Rewrites literal forms the token classifier can't take as written:
+    /// based integers (bases 2..16) become their decimal value, and the
+    /// separator underscores of bit-string literals are dropped. Both keep
+    /// the literal's meaning; this is the single place every consumer of
+    /// literal tokens (synthesis, case choices, engine) benefits from.
+    /// </summary>
+    private static string NormalizeLiterals(string line)
     {
-        if (string.IsNullOrEmpty(line) || !line.Contains('#')) return line;
-        return BasedLiteralRe.Replace(line, m =>
+        if (string.IsNullOrEmpty(line)) return line;
+        if (line.Contains('#'))
         {
-            if (!int.TryParse(m.Groups["base"].Value, out var b) || b < 2 || b > 16) return m.Value;
-            var digits = m.Groups["digits"].Value.Replace("_", string.Empty);
-            try { return Convert.ToInt64(digits, b).ToString(System.Globalization.CultureInfo.InvariantCulture); }
-            catch { return m.Value; }
-        });
+            line = BasedLiteralRe.Replace(line, m =>
+            {
+                if (!int.TryParse(m.Groups["base"].Value, out var b) || b < 2 || b > 16) return m.Value;
+                var digits = m.Groups["digits"].Value.Replace("_", string.Empty);
+                try { return Convert.ToInt64(digits, b).ToString(System.Globalization.CultureInfo.InvariantCulture); }
+                catch { return m.Value; }
+            });
+        }
+        if (line.Contains('_') && line.Contains('"'))
+        {
+            line = BitStringLiteralRe.Replace(line, m =>
+                m.Groups["digits"].Value.Contains('_')
+                    ? $"{m.Groups["base"].Value}\"{m.Groups["digits"].Value.Replace("_", string.Empty)}\""
+                    : m.Value);
+        }
+        return line;
     }
 
     /// <summary>
@@ -132,7 +154,7 @@ public class Tokenizer{
     /// </param>
     public void TokenizeLineAt(string line, int sourceLineZeroBased){
         List<string> tokens = new();
-        line = ConvertBasedLiterals(line);
+        line = NormalizeLiterals(line);
         var preTokens = TokenizeSpaces(line.Trim());
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token.Trim()));
         _tokens.Add((tokens, sourceLineZeroBased));
@@ -147,7 +169,7 @@ public class Tokenizer{
     /// <returns>An array of string tokens.</returns>
     public string[] TokenizeLineReturn(string line){
         List<string> tokens = new();
-        line = ConvertBasedLiterals(line);
+        line = NormalizeLiterals(line);
         var preTokens = TokenizeSpaces(line);
         foreach(var token in preTokens) tokens.AddRange(TokenizeSpecialCharacters(token));
         return tokens.ToArray();
