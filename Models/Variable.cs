@@ -51,11 +51,56 @@ public class Variable {
     public string? EnumTypeName { get; set; } = null;
 
     /// <summary>
-    /// Gets or sets the record field values for record type variables.
-    /// Keys are field names, values are the field values.
-    /// v0.15.0: Added to support record types.
+    /// Literals of <see cref="EnumTypeName"/> in declaration order; a value's
+    /// position in this list is its encoding (record fields, VCD).
     /// </summary>
-    public Dictionary<string, object>? RecordFields { get; set; } = null;
+    public IReadOnlyList<string>? EnumLiterals { get; set; } = null;
+
+    /// <summary>
+    /// Bit layout when this object is of a record type (its value is the packed
+    /// fields, first field leftmost); null otherwise.
+    /// </summary>
+    public RecordLayout? Layout { get; set; } = null;
+
+    /// <summary>
+    /// For arrays (<see cref="ElementSize"/> &gt; 0): template of one element's
+    /// subtype (record layout, vector range), so a path like <c>m(i).lo</c> can
+    /// continue past the element. Null for arrays of scalars and non-arrays.
+    /// </summary>
+    public Variable? ElementShape { get; set; } = null;
+
+    /// <summary>True for a number (integer/natural), false for an enumeration stored as INTEGER.</summary>
+    public bool IsInteger => _dataType is DATATYPES.INTEGER or DATATYPES.NATURAL && EnumLiterals is null && EnumTypeName is null;
+
+    /// <summary>
+    /// A fresh object with this one's name, current value, type, size and
+    /// declared shape — the per-call copy of a function/procedure local.
+    /// </summary>
+    public Variable CloneShaped()
+    {
+        var clone = new Variable(Name, Value?.ToString() ?? string.Empty, Type) { Size = Size };
+        clone.CopyShapeFrom(this);
+        return clone;
+    }
+
+    /// <summary>
+    /// Copies the declared shape of <paramref name="other"/> — custom/enum type
+    /// names, array geometry, declared range and record layout — onto this object.
+    /// The single way to give a re-created local (function/procedure frames,
+    /// materialised constants) the same indexing/field rules as its declaration.
+    /// </summary>
+    public void CopyShapeFrom(Variable other)
+    {
+        CustomTypeName = other.CustomTypeName;
+        EnumTypeName = other.EnumTypeName;
+        EnumLiterals = other.EnumLiterals;
+        ElementSize = other.ElementSize;
+        ArrayLength = other.ArrayLength;
+        ElementShape = other.ElementShape;
+        Layout = other.Layout;
+        if (other.HasDeclaredRange)
+            SetDeclaredRange(other.LeftBound!.Value, other.RightBound!.Value, other.IsDownto);
+    }
 
     /// <summary>
     /// For variables declared with a user array type (e.g. `signal mem : rom_t`

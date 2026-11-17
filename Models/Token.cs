@@ -21,6 +21,16 @@ public class Token {
     /// </summary>
     public int Col { get; set; }
     /// <summary>
+    /// True for a selected-name suffix token such as <c>.lo</c> — what the
+    /// tokenizer leaves after <c>m(i)</c> in <c>m(i).lo</c>.
+    /// </summary>
+    public bool IsFieldSelector => IsFieldSelectorText(Value);
+
+    /// <summary>The <see cref="IsFieldSelector"/> rule on raw token text.</summary>
+    public static bool IsFieldSelectorText(string value) =>
+        value.Length > 1 && value[0] == '.' && (char.IsLetter(value[1]) || value[1] == '_');
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Token"/> class.
     /// </summary>
     /// <param name="Value">The string value of the token.</param>

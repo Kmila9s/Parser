@@ -25,9 +25,27 @@ public class TokenStream
     }
 
     /// <summary>
+    /// Tokenizes <paramref name="lines"/> (blank lines skipped) and returns a
+    /// stream over the result — the single «source text → token stream» path
+    /// for bodies and declarations re-parsed after the main load.
+    /// </summary>
+    public static TokenStream FromLines(IEnumerable<string> lines)
+    {
+        var tokenizer = new Tokenizer();
+        foreach (var line in lines)
+            if (!string.IsNullOrWhiteSpace(line))
+                tokenizer.TokenizeLine(line);
+        tokenizer.Evaluate();
+        return new TokenStream(tokenizer.GetDictionaryType());
+    }
+
+    /// <summary>
     /// Gets the current token in the stream without consuming it.
     /// </summary>
     public Token? Current => (_currentPosition < _tokens.Count) ? _tokens[_currentPosition] : null;
+
+    /// <summary>The token after <see cref="Current"/>, without consuming anything.</summary>
+    public Token? Peek() => (_currentPosition + 1 < _tokens.Count) ? _tokens[_currentPosition + 1] : null;
 
     /// <summary>
     /// Gets the previous token (useful for error context).

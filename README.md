@@ -53,6 +53,18 @@ production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
 
+### Version 3.1.2 (2026-11-16) — record layouts
+
+*   `RecordLayout` / `FieldSlot` / `FieldKind`: the bit layout of a record
+    type (fields packed first-leftmost, nested records, `Leaves()` as the
+    single flattening for views). `Variable.Layout`, `ElementShape` and
+    `EnumLiterals` replace the dead `RecordFields` dictionary;
+    `Variable.CopyShapeFrom` / `CloneShaped` and `IsInteger` are the single
+    way to copy a declared shape and to tell a number from an enumeration.
+*   `TokenStream.FromLines` (the one «text → token stream» path) and
+    `TokenStream.Peek()`; `Token.IsFieldSelector` for the `.lo` token after
+    `m(i)`; `VhdlText.TopLevelSplit` / `MatchingParen`.
+
 ### Version 3.1.1 (2026-11-16) — one index rule
 
 *   `Variable.OffsetInRange(left, isDownto, index)`: the single
