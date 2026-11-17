@@ -46,14 +46,18 @@ public sealed class Diagnostic
     /// line + column + message so the existing throw-sites propagate cleanly
     /// into the structured diagnostic stream.
     /// </summary>
-    public static Diagnostic FromException(ParserException ex) => new()
+    public static Diagnostic FromException(ParserException ex) =>
+        Error(ex.Line, ex.Column, ex.Context?.Length ?? 1, ex.ErrorCode?.ToString() ?? "PARSE-ERROR", ex.Message);
+
+    /// <summary>An error diagnostic at a 1-based position (unknown parts default to 1).</summary>
+    private static Diagnostic Error(int line, int column, int width, string code, string message) => new()
     {
         Severity    = DiagnosticSeverity.Error,
-        Line        = Math.Max(1, ex.Line),
-        StartColumn = Math.Max(1, ex.Column),
-        EndColumn   = Math.Max(1, ex.Column) + Math.Max(1, ex.Context?.Length ?? 1),
-        Code        = ex.ErrorCode?.ToString() ?? "PARSE-ERROR",
-        Message     = ex.Message
+        Line        = Math.Max(1, line),
+        StartColumn = Math.Max(1, column),
+        EndColumn   = Math.Max(1, column) + Math.Max(1, width),
+        Code        = code,
+        Message     = message
     };
 
     /// <summary>
@@ -80,14 +84,24 @@ public sealed class Diagnostic
         int idx = src.IndexOf(ex.Context, StringComparison.Ordinal);
         if (idx < 0) return basic;
 
-        return new Diagnostic
-        {
-            Severity    = basic.Severity,
-            Line        = basic.Line,
-            StartColumn = idx + 1,
-            EndColumn   = idx + 1 + ex.Context!.Length,
-            Code        = basic.Code,
-            Message     = basic.Message
-        };
+        return Error(basic.Line, idx + 1, ex.Context!.Length, basic.Code, basic.Message);
     }
+
+    /// <summary>
+    /// Diagnostic for any analysis failure. A <see cref="ParserException"/>
+    /// goes through the source-aware overload (its column is placed on the
+    /// offending name); any other <see cref="ISourcePosition"/> keeps its
+    /// line and column; anything else lands on line 1. When the offending
+    /// token is unknown the range is 6 columns wide (Monaco draws nothing for
+    /// an empty range).
+    /// </summary>
+    /// <param name="ex">The failure.</param>
+    /// <param name="fileContent">Analyzed source, used to place the column precisely.</param>
+    /// <param name="code">Code for failures that are not a <see cref="ParserException"/> (which keeps its own code, or PARSE-ERROR).</param>
+    public static Diagnostic FromAnyException(Exception ex, string? fileContent, string code) => ex switch
+    {
+        ParserException pex => FromException(pex, fileContent),
+        ISourcePosition pos => Error(pos.Line, pos.Column, 6, code, ex.Message),
+        _                   => Error(1, 1, 6, code, ex.Message),
+    };
 }

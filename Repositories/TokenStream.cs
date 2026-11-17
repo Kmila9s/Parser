@@ -112,7 +112,7 @@ public class TokenStream
     /// Custom exception for errors within the TokenStream.
     /// Provides detailed error messages with line:col information.
     /// </summary>
-    public class StreamerException : Exception
+    public class StreamerException : Exception, ISourcePosition
     {
         /// <summary>Gets the line number where the error occurred (1-based).</summary>
         public int Line { get; }
