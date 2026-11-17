@@ -117,12 +117,17 @@ public class Variable {
     /// vectors — so only <c>to</c>/offset ranges change. <paramref name="valueLength"/>
     /// is the current length of the value string the offset indexes into.
     /// </summary>
-    public int IndexToOffset(int index, int valueLength)
-    {
-        if (HasDeclaredRange)
-            return IsDownto ? (LeftBound!.Value - index) : (index - LeftBound!.Value);
-        return valueLength - 1 - index;
-    }
+    public int IndexToOffset(int index, int valueLength) =>
+        HasDeclaredRange ? OffsetInRange(LeftBound!.Value, IsDownto, index) : valueLength - 1 - index;
+
+    /// <summary>
+    /// Position of <paramref name="index"/> counted from the leftmost element of
+    /// a range that starts at <paramref name="left"/> and runs
+    /// <c>downto</c> (<paramref name="isDownto"/>) or <c>to</c>. The single
+    /// index→position rule for vectors and arrays.
+    /// </summary>
+    public static int OffsetInRange(int left, bool isDownto, int index) =>
+        isDownto ? left - index : index - left;
 
     /// <summary>
     /// For a VHDL slice with bounds <paramref name="high"/> (numerically larger)
