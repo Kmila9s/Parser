@@ -53,6 +53,12 @@ production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
 
+### Version 3.1.1 (2026-11-16) — one index rule
+
+*   `Variable.OffsetInRange(left, isDownto, index)`: the single
+    index→position rule, used by `IndexToOffset` and by the interpreter's
+    array types (`TypeDefinition.SlotOf`).
+
 ### Version 3.1.0 (2026-11-16) — positioned errors
 
 *   `ISourcePosition` (Line/Column), implemented by `ParserException` and
