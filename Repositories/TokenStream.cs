@@ -222,6 +222,7 @@ public class TokenStream
                 Constants.TYPE.TIME_VARIABLES => "time unit (e.g., 'ns', 'us', 'ms')",
                 Constants.TYPE.VECTORS_ATTRIBUTES => "vector attribute (e.g., 'high, 'low, 'length)",
                 Constants.TYPE.QUALIFIED_IDENTIFIERS => "qualified identifier (e.g., 'ieee.std_logic_1164')",
+                Constants.TYPE.FIELD_SELECTOR => "record field selector (e.g., '.lo')",
                 _ => type.ToString()
             };
         }

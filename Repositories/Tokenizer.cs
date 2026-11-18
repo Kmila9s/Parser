@@ -175,7 +175,19 @@ public class Tokenizer{
         return tokens.ToArray();
     }
     /// <summary>
-    /// Splits a line by spaces and removes comments.
+    /// VHDL string, bit-string and character literals, which are indivisible
+    /// tokens (G56): <c>"…"</c> with <c>""</c> as an escaped quote, optionally
+    /// glued to a base specifier (<c>x"FF"</c>, VHDL-2008 <c>12ux"F"</c>), and
+    /// <c>'c'</c> when the tick does not follow a name (<c>a'event</c>,
+    /// <c>t'(…)</c> and <c>s(1)'length</c> are attributes/qualifications).
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex LiteralRe =
+        new(@"(?<!\w)\d*[uUsS]?[bBoOxXdD]""(?:[^""]|"""")*""|""(?:[^""]|"""")*""|(?<![\w)\]])'.'",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Splits a line on blanks and tabs outside literals (a literal is never
+    /// split: <c>"a: b"</c> stays one piece) after removing its comment.
     /// </summary>
     private List<string> TokenizeSpaces(string line){
         try{
@@ -184,16 +196,37 @@ public class Tokenizer{
             // Line comment out, but never a `--` inside a string literal (F-G-12a).
             line = VhdlText.StripLineComment(line);
             if(String.IsNullOrEmpty(line)) return new();
-            line = line.Replace("\t", "");
-            return line
-                    .Trim()
-                    .Split(" ")
-                    .Where(p => !String.IsNullOrWhiteSpace(p))
-                    .ToList();
+            var pieces = new List<string>();
+            var piece = new System.Text.StringBuilder();
+            int i = 0;
+            // Most lines hold no literal: no regex pass then.
+            var literals = line.AsSpan().IndexOfAny('"', '\'') < 0
+                ? (IEnumerable<System.Text.RegularExpressions.Match>)[]
+                : LiteralRe.Matches(line);
+            foreach (var literal in literals)
+            {
+                AppendSplitOnBlanks(line, i, literal.Index, piece, pieces);
+                piece.Append(literal.Value);
+                i = literal.Index + literal.Length;
+            }
+            AppendSplitOnBlanks(line, i, line.Length, piece, pieces);
+            if (piece.Length > 0) pieces.Add(piece.ToString());
+            return pieces;
         }catch(Exception ex){
             LastError = ex.Message;
         }
         return new();
+    }
+
+    /// <summary>Appends <c>line[from..to)</c> to the current piece, closing a piece at each blank or tab.</summary>
+    private static void AppendSplitOnBlanks(string line, int from, int to, System.Text.StringBuilder piece, List<string> pieces)
+    {
+        for (int i = from; i < to; i++)
+        {
+            char c = line[i];
+            if (c != ' ' && c != '\t') { piece.Append(c); continue; }
+            if (piece.Length > 0) { pieces.Add(piece.ToString()); piece.Clear(); }
+        }
     }
 
     /// <summary>
@@ -211,24 +244,16 @@ public class Tokenizer{
             // at line level by the string-aware pass in TokenizeSpaces.
             if(String.IsNullOrEmpty(line)) return new();
 
-            // Tier 4.2 (2026-07-28) — bit-string literal atomicity: if the
-            // input starts with `"`, find the matching closing `"` and yield
-            // the whole `"…"` region as ONE token. Without this, VHDL-2008
-            // `case?` choices like `"10--"` get shredded by the `-` splitter
-            // into `"10`, `-`, `-`, `"` and no arm ever matches. Handles
-            // trailing punctuation (`"01";` → tokens [`"01"`, `;`]) by
-            // recursing on whatever follows the closing quote.
-            if (line[0] == '"')
+            // A literal is one token wherever it sits in the piece (Tier 4.2:
+            // `"10--"` must not be shredded by the `-` splitter; G56: neither
+            // `"a: b"` nor `';'`); the text around it is split as usual.
+            var literal = line.AsSpan().IndexOfAny('"', '\'') < 0 ? System.Text.RegularExpressions.Match.Empty : LiteralRe.Match(line);
+            if (literal.Success)
             {
-                int endQuote = line.IndexOf('"', 1);
-                if (endQuote >= 0)
-                {
-                    var literal = line.Substring(0, endQuote + 1);
-                    tokens.Add(literal);
-                    var rest = endQuote + 1 < line.Length ? line.Substring(endQuote + 1) : "";
-                    if (!String.IsNullOrEmpty(rest)) tokens.AddRange(TokenizeSpecialCharacters(rest));
-                    return tokens;
-                }
+                tokens.AddRange(TokenizeSpecialCharacters(line[..literal.Index]));
+                tokens.Add(literal.Value);
+                tokens.AddRange(TokenizeSpecialCharacters(line[(literal.Index + literal.Length)..]));
+                return tokens;
             }
             foreach(var separator in separators){
                 if(line.Contains(separator)){
@@ -311,6 +336,8 @@ public class Tokenizer{
             result = new(token, Constants.TYPE.METHODS);
         else if(_vectorAttributes.IsMatch(evaluationToken))
             result = new(token, Constants.TYPE.VECTORS_ATTRIBUTES);
+        else if(Token.IsFieldSelectorText(token))
+            result = new(token, Constants.TYPE.FIELD_SELECTOR);
         else
             result = new(token, Constants.TYPE.UNKNOWN);
         if (_profileStopwatch != null)
@@ -335,6 +362,11 @@ public class Tokenizer{
             tokens.ForEach(p =>
             {
                 var token = EvaluateToken(p);
+                // A time unit name is a unit only after an abstract literal (`10 ns`);
+                // anywhere else it is an identifier (a label `us:`, a signal `ns`).
+                if (token.Type == Constants.TYPE.TIME_VARIABLES && token.Value.All(char.IsLetter)
+                    && !(evaluation.Count > 0 && evaluation[^1].Value.Length > 0 && char.IsDigit(evaluation[^1].Value[^1])))
+                    token.Type = Constants.TYPE.IDENTIFIERS;
                 token.Line = line;
                 token.Col = currentCol++;
                 evaluation.Add(token);

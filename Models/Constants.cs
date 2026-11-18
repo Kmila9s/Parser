@@ -31,7 +31,9 @@ public class Constants{
         /// <summary>Signal attributes like 'event, 'length, 'range, 'high, 'low, etc.</summary>
         VECTORS_ATTRIBUTES,
         /// <summary>Token type could not be determined.</summary>
-        UNKNOWN
+        UNKNOWN,
+        /// <summary>Record field selector suffix after a name with selectors, e.g. <c>.lo</c> in <c>m(i).lo</c>.</summary>
+        FIELD_SELECTOR
     }
     /// <summary>
     /// Defines custom exception types for parsing errors.
