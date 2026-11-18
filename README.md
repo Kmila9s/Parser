@@ -53,6 +53,20 @@ production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
 
+### Version 3.1.4 (2026-11-18) — atomic literals and field selectors
+
+*   **String and character literals are one token (G56).** `"a: b"`, `"x;y"`,
+    `"say ""hi"""`, `' '`, `';'` and bit strings with a base (`x"F_F"`) are never
+    split on their blanks or punctuation (`Tokenizer.LiteralRe`); `report`/textio
+    text comes out exactly as GHDL prints it and `x := "a b";` no longer yields an
+    UNKNOWN fragment. Tabs separate tokens like blanks. `Token.IsStringLiteral`.
+*   **`FIELD_SELECTOR` token type** for `.lo` after `m(i)` (was UNKNOWN +
+    `IsFieldSelector`); `p.lo`/`work.pkg.x` stay one qualified identifier.
+*   `Token.IsQualifierMarkText`: the single rule for the `type'` mark of a
+    qualified expression.
+*   A time unit name (`ns`, `us`, …) is a unit only after an abstract literal
+    (`10 ns`); elsewhere it is an identifier (a label `us:` was rejected).
+
 ### Version 3.1.3 (2026-11-18) — 1-based token line
 
 *   `Token.SourceLine`: the 1-based line of a token, the single conversion from

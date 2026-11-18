@@ -29,9 +29,26 @@ public class Token {
     /// True for a selected-name suffix token such as <c>.lo</c> — what the
     /// tokenizer leaves after <c>m(i)</c> in <c>m(i).lo</c>.
     /// </summary>
-    public bool IsFieldSelector => IsFieldSelectorText(Value);
+    public bool IsFieldSelector => Type == Constants.TYPE.FIELD_SELECTOR;
 
-    /// <summary>The <see cref="IsFieldSelector"/> rule on raw token text.</summary>
+    /// <summary>
+    /// The <c>type'</c> mark of a qualified expression (<c>std_logic_vector'(…)</c>):
+    /// a name glued to a trailing tick.
+    /// </summary>
+    public static bool IsQualifierMarkText(string value) =>
+        value.Length > 1 && value[^1] == '\'' && (char.IsLetter(value[0]) || value[0] == '_')
+        && IsIdentifierText(value.AsSpan(0, value.Length - 1));
+
+    private static bool IsIdentifierText(ReadOnlySpan<char> text)
+    {
+        foreach (char c in text) if (!char.IsLetterOrDigit(c) && c != '_') return false;
+        return true;
+    }
+
+    /// <summary>True for a string or bit-string literal token (<c>"a: b"</c>, <c>x"FF"</c>).</summary>
+    public bool IsStringLiteral => Type == Constants.TYPE.LITERALS && Value.Length > 1 && Value[^1] == '"';
+
+    /// <summary>The tokenizer's <see cref="Constants.TYPE.FIELD_SELECTOR"/> rule on raw token text.</summary>
     public static bool IsFieldSelectorText(string value) =>
         value.Length > 1 && value[0] == '.' && (char.IsLetter(value[1]) || value[1] == '_');
 
