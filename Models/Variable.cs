@@ -35,6 +35,13 @@ public class Variable {
     public bool IsStub { get; set; } = false;
 
     /// <summary>
+    /// True when <see cref="Type"/> is a placeholder, not the object's real type —
+    /// the result of a function known only by its signature. Type/width validation
+    /// skips such values; evaluation is unaffected (unlike <see cref="IsStub"/>).
+    /// </summary>
+    public bool HasPlaceholderType { get; set; }
+
+    /// <summary>
     /// Gets or sets the custom type name for record/array types.
     /// Used when the variable is declared with a user-defined type.
     /// v0.15.0: Added to support record type field access.

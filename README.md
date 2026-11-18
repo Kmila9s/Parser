@@ -53,6 +53,15 @@ production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
 
+### Version 3.1.3 (2026-11-18) — 1-based token line
+
+*   `Token.SourceLine`: the 1-based line of a token, the single conversion from
+    the tokenizer's 0-based `Line` to the convention every model keeps
+    (operation lines, branch condition lines, diagnostics).
+*   `Variable.HasPlaceholderType`: the type of a value is a placeholder (result
+    of a function known only by its signature); type/width checks skip it,
+    evaluation is unaffected.
+
 ### Version 3.1.2 (2026-11-16) — record layouts
 
 *   `RecordLayout` / `FieldSlot` / `FieldKind`: the bit layout of a record

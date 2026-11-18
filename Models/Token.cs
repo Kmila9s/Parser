@@ -13,9 +13,14 @@ public class Token {
     /// </summary>
     public Constants.TYPE Type { get; set; } = Constants.TYPE.UNKNOWN;
     /// <summary>
-    /// Gets or sets the line number where the token was found.
+    /// Gets or sets the 0-based line number where the token was found.
     /// </summary>
     public int Line { get; set; }
+    /// <summary>
+    /// The 1-based source line of the token — the convention of every line kept on
+    /// a model (<c>Operation.SourceLine</c>, branch condition lines, diagnostics).
+    /// </summary>
+    public int SourceLine => Line + 1;
     /// <summary>
     /// Gets or sets the column number where the token begins.
     /// </summary>
