@@ -242,7 +242,7 @@ public class Variable {
             "hex" => DATATYPES.HEX,
             "range" => DATATYPES.RANGE,
             "character" => DATATYPES.CHARACTER,
-            "string" => DATATYPES.CHARACTER, // treat string as character array for now
+            "string" => DATATYPES.STRING,
             "time" => DATATYPES.INTEGER, // treat time as integer for simplicity
             "real" => DATATYPES.INTEGER, // treat real as integer for simplicity (limited support)
             _ => DATATYPES.UNKNOWN
@@ -370,6 +370,10 @@ public class Variable {
                         transformed = value.ToString()?.Replace("\"", "").Replace("'", "") ?? throw new Exception("Malformed variable");
                     }
                     break;
+                case DATATYPES.STRING:
+                case DATATYPES.CHARACTER:
+                    transformed = value is string text ? UnquoteText(text) : value;
+                    break;
                 default:
                     transformed = value;
                     break;
@@ -382,6 +386,17 @@ public class Variable {
         }
     }
     /// <summary>
+    /// The text of a string literal (<c>"a ""b"""</c> → <c>a "b"</c>) or a character literal
+    /// (<c>'a'</c> → <c>a</c>); any other text is returned unchanged.
+    /// </summary>
+    public static string UnquoteText(string text)
+    {
+        if (text.Length >= 2 && text[0] == '"' && text[^1] == '"') return text[1..^1].Replace("\"\"", "\"");
+        if (text.Length == 3 && text[0] == '\'' && text[2] == '\'') return text[1..2];
+        return text;
+    }
+
+    /// <summary>
     /// Gets or sets whether this variable represents a port in an entity declaration.
     /// </summary>
     public bool IsPort { get; set; } = false;
@@ -393,6 +408,17 @@ public class Variable {
     /// Audit F-G-03 (2026-07-09).
     /// </summary>
     public bool IsConstant { get; set; } = false;
+    /// <summary>
+    /// True when the declaration gives an explicit initial value (<c>:= …</c>, also a port
+    /// default). Objects without one start at their type's LRM default (<c>T'left</c>); the
+    /// didactic initial-value policy only seeds objects without one.
+    /// </summary>
+    public bool HasInitializer { get; set; }
+    /// <summary>
+    /// The bounds (low, high) of an integer subtype (<c>range -4 to 3</c>, <c>natural</c>),
+    /// or null for an unconstrained integer or a non-integer object.
+    /// </summary>
+    public (long Low, long High)? ScalarRange { get; set; }
     /// <summary>
     /// Gets or sets the direction of the port (IN, OUT, INOUT, BUFFER).
     /// Only relevant when <see cref="IsPort"/> is true.

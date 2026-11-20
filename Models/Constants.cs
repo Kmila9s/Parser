@@ -79,6 +79,8 @@ public class Constants{
         HEX,
         /// <summary>Data type could not be determined.</summary>
         UNKNOWN,
+        /// <summary>Character string (<c>string(1 to N)</c>): the value is the text itself.</summary>
+        STRING,
     }
     /// <summary>
     /// Defines categories of VHDL operators for expression evaluation.
@@ -275,10 +277,11 @@ public class Constants{
     /// </summary>
     public const string LITERAL_BOOLEAN = "true|false";
     /// <summary>
-    /// Matches std_logic single-bit literals.
-    /// Valid values: '0', '1', 'U' (uninitialized), 'Z' (high-impedance)
+    /// Matches std_logic single-bit literals: the nine IEEE 1164 values
+    /// 'U' 'X' '0' '1' 'Z' 'W' 'L' 'H' '-' (plus the legacy lower-case 'u'/'z'
+    /// and the one-character strings "0" "1" "U" "Z").
     /// </summary>
-    public const string LITERAL_STD_LOGIC = "('[0|1]'|\"[0|1]\"|'(U|u)'|\"(U|u)\"|'(Z|z)'|\"(Z|z)\")";
+    public const string LITERAL_STD_LOGIC = "^('[01UuXZzWLH-]'|\"[01UuZz]\")$";
     /// <summary>
     /// Combined pattern for all literal types.
     /// </summary>
@@ -293,9 +296,9 @@ public class Constants{
     public const string FUNCTIONS = @"^\,?[_a-zA-Z][_a-zA-Z0-9]*\(.+\)\,?$";
     /// <summary>
     /// Matches VHDL operators including assignment, arithmetic, and comparison.
-    /// Includes: &lt;=, :=, =&gt;, +, -, *, **, /, &amp;, ', /=, &lt;, &gt;, &gt;=, mod
+    /// Includes: &lt;=, :=, =&gt;, +, -, *, **, /, &amp;, ', /=, &lt;, &gt;, &gt;=, mod, rem
     /// </summary>
-    public const string OPERATORS = @"^((\<\=)|\:|\;|(\=\>)|\+|\-|\:\=|\=|(\*\*)|\*|\&|\'|(\/\=)|\/|\<|(\>\=)|\>|mod)$";
+    public const string OPERATORS = @"^((\<\=)|\:|\;|(\=\>)|\+|\-|\:\=|\=|(\*\*)|\*|\&|\'|(\/\=)|\/|\<|(\>\=)|\>|mod|rem|\?\?|\?=|\?/=)$";
     /// <summary>
     /// Matches parentheses characters.
     /// </summary>
@@ -325,14 +328,15 @@ public class Constants{
     /// <summary>
     /// VHDL logical operators. Anchored to prevent partial matches (e.g., "or" in "memory").
     /// Includes: and, or, xor, nand, nor, xnor, not, abs
-    /// Includes shift/rotate operators: sll, srl, sla, sra, rol, ror
+    /// Includes shift/rotate operators: sll, srl, sla, sra, rol, ror, and the VHDL-2008
+    /// matching operators ?= / ?/= and the condition operator ??
     /// </summary>
-    public const string LOGIC_OPERATORS = @"^(and|or|xor|nand|nor|not|xnor|abs|sll|srl|sla|sra|rol|ror)$";
+    public const string LOGIC_OPERATORS = @"^(and|or|xor|nand|nor|not|xnor|abs|sll|srl|sla|sra|rol|ror|\?\?|\?=|\?/=)$";
     /// <summary>
     /// VHDL arithmetic operators. Anchored to prevent partial matches.
-    /// +, -, * (multiply), ** (power), / (divide), mod (modulo)
+    /// +, -, * (multiply), ** (power), / (divide), mod (modulo), rem (remainder)
     /// </summary>
-    public const string ARITH_OPERATORS = @"^(\+|\-|\*\*|\*|\/|mod)$";
+    public const string ARITH_OPERATORS = @"^(\+|\-|\*\*|\*|\/|mod|rem)$";
 
     #endregion
 }
