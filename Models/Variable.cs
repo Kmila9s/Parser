@@ -42,6 +42,17 @@ public class Variable {
     public bool HasPlaceholderType { get; set; }
 
     /// <summary>
+    /// The declared type mark (lower case), resolved through user subtypes to the
+    /// predefined/user type it constrains: <c>signed</c>, <c>std_ulogic</c>,
+    /// <c>std_logic_vector</c>, a record/enum/array type name… The storage
+    /// classification <see cref="Type"/> merges several of these (std_logic and
+    /// std_ulogic, signed and unsigned); this keeps them apart for resolution
+    /// (<see cref="TypeMarks.IsResolved"/>) and signed arithmetic
+    /// (<see cref="TypeMarks.SignednessOf"/>). Null when unknown.
+    /// </summary>
+    public string? TypeMark { get; set; }
+
+    /// <summary>
     /// Gets or sets the custom type name for record/array types.
     /// Used when the variable is declared with a user-defined type.
     /// v0.15.0: Added to support record type field access.
@@ -99,6 +110,7 @@ public class Variable {
     public void CopyShapeFrom(Variable other)
     {
         CustomTypeName = other.CustomTypeName;
+        TypeMark = other.TypeMark;
         EnumTypeName = other.EnumTypeName;
         EnumLiterals = other.EnumLiterals;
         ElementSize = other.ElementSize;
