@@ -234,7 +234,7 @@ public class Tokenizer{
     /// </summary>
     private List<string> TokenizeSpecialCharacters(string line){
         try{
-            List<string> tokens = new(), separators = new(){ ":=", "<=", "=>", "**", "/=", ">="};
+            List<string> tokens = new(), separators = new(){ "?/=", "??", "?=", ":=", "<=", "=>", "**", "/=", ">="};
             // F-G-12a (2026-07-18): removed `if(line.StartsWith("--")) return new();`
             // — this was a per-token safety net for the days when
             // TokenizeSpaces couldn't reliably strip line comments; it
