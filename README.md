@@ -53,6 +53,17 @@ production parser, with must-reject cases kept as negative tests).
 
 ## 3. Changelog
 
+### Version 3.1.6 (2026-11-20) — declared type mark
+
+*   **`Variable.TypeMark`**: the declared type name (lower case: `std_logic`,
+    `signed`, `time`, a user subtype…) next to the storage class `DATATYPES`,
+    copied by `CopyShapeFrom`. `TypeMarks.IsResolved` (resolved vs unresolved
+    types, for multi-driver checks) and `TypeMarks.SignednessOf` (numeric_std
+    sign) are the single rules over it.
+*   `Variable` `==`/`!=` compare by name without case, like `Equals` (`SameName`),
+    and are null-correct (`v == null` with the `(Variable, string)` overload was
+    inverted).
+
 ### Version 3.1.4 (2026-11-18) — atomic literals and field selectors
 
 *   **String and character literals are one token (G56).** `"a: b"`, `"x;y"`,
