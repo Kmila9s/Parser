@@ -44,6 +44,13 @@ public class TokenStream
     /// </summary>
     public Token? Current => (_currentPosition < _tokens.Count) ? _tokens[_currentPosition] : null;
 
+    /// <summary>Index of <see cref="Current"/> in the stream.</summary>
+    public int Position => _currentPosition;
+
+    /// <summary>The tokens from position <paramref name="from"/> (inclusive) to <paramref name="to"/> (exclusive).</summary>
+    public IReadOnlyList<Token> Slice(int from, int to) =>
+        _tokens.GetRange(Math.Clamp(from, 0, _tokens.Count), Math.Max(0, Math.Min(to, _tokens.Count) - Math.Clamp(from, 0, _tokens.Count)));
+
     /// <summary>The token after <see cref="Current"/>, without consuming anything.</summary>
     public Token? Peek() => (_currentPosition + 1 < _tokens.Count) ? _tokens[_currentPosition + 1] : null;
 
