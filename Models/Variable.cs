@@ -42,6 +42,17 @@ public class Variable {
     public bool HasPlaceholderType { get; set; }
 
     /// <summary>
+    /// The declared type mark (lower case), resolved through user subtypes to the
+    /// predefined/user type it constrains: <c>signed</c>, <c>std_ulogic</c>,
+    /// <c>std_logic_vector</c>, a record/enum/array type name… The storage
+    /// classification <see cref="Type"/> merges several of these (std_logic and
+    /// std_ulogic, signed and unsigned); this keeps them apart for resolution
+    /// (<see cref="TypeMarks.IsResolved"/>) and signed arithmetic
+    /// (<see cref="TypeMarks.SignednessOf"/>). Null when unknown.
+    /// </summary>
+    public string? TypeMark { get; set; }
+
+    /// <summary>
     /// Gets or sets the custom type name for record/array types.
     /// Used when the variable is declared with a user-defined type.
     /// v0.15.0: Added to support record type field access.
@@ -99,6 +110,7 @@ public class Variable {
     public void CopyShapeFrom(Variable other)
     {
         CustomTypeName = other.CustomTypeName;
+        TypeMark = other.TypeMark;
         EnumTypeName = other.EnumTypeName;
         EnumLiterals = other.EnumLiterals;
         ElementSize = other.ElementSize;
@@ -474,16 +486,24 @@ public class Variable {
     {
         return this._nameLower.GetHashCode();
     }
+    /// <summary>
+    /// The single name comparison behind the operators: VHDL identifiers are
+    /// case-insensitive (G74); two nulls are equal, a null and a name are not
+    /// (so <c>v == null</c> means what it says).
+    /// </summary>
+    private static bool SameName(string? a, string? b) =>
+        a is null || b is null ? a is null && b is null : string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Case-insensitive equality: string == Variable.</summary>
-    public static bool operator ==(string p, Variable var) => var?._nameLower != null && p?.ToLowerInvariant() == var._nameLower;
+    public static bool operator ==(string p, Variable var) => SameName(p, var is null ? null : var.Name);
     /// <summary>Case-insensitive equality: Variable == string.</summary>
-    public static bool operator ==(Variable var, string p) => var?._nameLower != null && p?.ToLowerInvariant() == var._nameLower;
-    /// <summary>Equality comparison between two Variable instances by name.</summary>
-    public static bool operator ==(Variable var, Variable comp) => var?.Name == comp?.Name;
-    /// <summary>Inequality comparison between two Variable instances by name.</summary>
-    public static bool operator !=(Variable var, Variable comp) => var?.Name != comp?.Name;
+    public static bool operator ==(Variable var, string p) => SameName(var is null ? null : var.Name, p);
+    /// <summary>Case-insensitive equality of two variables by name (like <see cref="Equals(object?)"/>).</summary>
+    public static bool operator ==(Variable var, Variable comp) => SameName(var is null ? null : var.Name, comp is null ? null : comp.Name);
+    /// <summary>Case-insensitive inequality of two variables by name.</summary>
+    public static bool operator !=(Variable var, Variable comp) => !(var == comp);
     /// <summary>Case-insensitive inequality: string != Variable.</summary>
-    public static bool operator !=(string p, Variable var) => !(var?.Name != null && p?.ToLower() == var.Name.ToLower());
+    public static bool operator !=(string p, Variable var) => !(p == var);
     /// <summary>Case-insensitive inequality: Variable != string.</summary>
-    public static bool operator !=(Variable var, string p) => !(var?.Name != null && p?.ToLower() == var.Name.ToLower());
+    public static bool operator !=(Variable var, string p) => !(var == p);
 }
