@@ -21,7 +21,7 @@ public enum DiagnosticSeverity
 /// arithmetic. <see cref="Code"/> is a short machine-readable identifier
 /// (e.g. "VHD0012") the UI can show in tooltips.
 /// </summary>
-public sealed class Diagnostic
+public sealed record Diagnostic
 {
     /// <summary>Severity bucket — drives Monaco marker colour + list grouping.</summary>
     public DiagnosticSeverity Severity { get; init; }
@@ -50,7 +50,7 @@ public sealed class Diagnostic
     /// into the structured diagnostic stream.
     /// </summary>
     public static Diagnostic FromException(ParserException ex) =>
-        Error(ex.Line, ex.Column, ex.Context?.Length ?? 1, ex.ErrorCode?.ToString() ?? "PARSE-ERROR", ex.Message);
+        Error(ex.Line, ex.Column, ex.Context?.Length ?? 1, ex.ErrorCode?.ToString() ?? "PARSE-ERROR", ex.Message) with { File = ex.File };
 
     /// <summary>An error diagnostic at a 1-based position (unknown parts default to 1).</summary>
     private static Diagnostic Error(int line, int column, int width, string code, string message) => new()
@@ -77,7 +77,8 @@ public sealed class Diagnostic
     public static Diagnostic FromException(ParserException ex, string? fileContent)
     {
         var basic = FromException(ex);
-        if (string.IsNullOrEmpty(fileContent) || string.IsNullOrEmpty(ex.Context) || ex.Line <= 0)
+        // A position in another file (G82) cannot be placed in this content.
+        if (string.IsNullOrEmpty(fileContent) || string.IsNullOrEmpty(ex.Context) || ex.Line <= 0 || ex.File is not null)
             return basic;
 
         var lines = fileContent.Replace("\r\n", "\n").Split('\n');
