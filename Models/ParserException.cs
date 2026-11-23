@@ -6,7 +6,7 @@ using static Parser.Models.Constants.ParseExceptions;
 /// Represents errors that occur during VHDL parsing.
 /// Provides detailed error messages with line:col information and context.
 /// </summary>
-public class ParserException : Exception, ISourcePosition
+public class ParserException : Exception, IRelocatable<ParserException>
 {
     /// <summary>Gets the line number where the error occurred (1-based).</summary>
     public int Line { get; }
@@ -21,15 +21,41 @@ public class ParserException : Exception, ISourcePosition
     public string? Context { get; }
 
     /// <summary>
+    /// The source file the position is in, when it is not the parsed text itself (an
+    /// error of an elaborated design located back in the child's file, G82); null otherwise.
+    /// </summary>
+    public string? File { get; }
+
+    /// <summary>The message without its position (what <see cref="Relocated"/> re-formats).</summary>
+    public string Reason { get; } = string.Empty;
+
+    private ParserException(string reason, int line, int col, string? context, ParseExceptions? code, string file, Exception inner)
+        : base(FormatMessage(reason, line, col, context, file), inner)
+    {
+        Reason = reason;
+        Line = line;
+        Column = col;
+        Context = context;
+        ErrorCode = code;
+        File = file;
+    }
+
+    /// <summary>
+    /// This error located at <paramref name="line"/> of <paramref name="file"/> (the
+    /// origin of a line of an elaborated text, G82): the same reason, its position re-formatted.
+    /// </summary>
+    public ParserException Relocated(string file, int line) => new(Reason, line, Column, Context, ErrorCode, file, this);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="ParserException"/> class.
     /// </summary>
-    public ParserException() : base("Unknown parsing error") { }
+    public ParserException() : base("Unknown parsing error") { Reason = Message; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ParserException"/> class with a specified error message.
     /// </summary>
     /// <param name="message">The message that describes the error.</param>
-    public ParserException(string message) : base(message) { }
+    public ParserException(string message) : base(message) { Reason = message; }
 
     /// <summary>
     /// Initializes a new instance with message and location.
@@ -37,6 +63,7 @@ public class ParserException : Exception, ISourcePosition
     public ParserException(string message, int line, int col)
         : base(FormatMessage(message, line, col, null))
     {
+        Reason = message;
         Line = line;
         Column = col;
     }
@@ -47,6 +74,7 @@ public class ParserException : Exception, ISourcePosition
     public ParserException(string message, int line, int col, string? context)
         : base(FormatMessage(message, line, col, context))
     {
+        Reason = message;
         Line = line;
         Column = col;
         Context = context;
@@ -58,6 +86,7 @@ public class ParserException : Exception, ISourcePosition
     public ParserException(string message, Token? token)
         : base(FormatMessage(message, token))
     {
+        Reason = message;
         if (token != null)
         {
             Line = token.Line + 1;
@@ -69,7 +98,7 @@ public class ParserException : Exception, ISourcePosition
     /// <summary>
     /// Initializes a new instance of the <see cref="ParserException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
     /// </summary>
-    public ParserException(string message, Exception innerException) : base(message, innerException) { }
+    public ParserException(string message, Exception innerException) : base(message, innerException) { Reason = message; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ParserException"/> class with a specific error code.
@@ -77,6 +106,7 @@ public class ParserException : Exception, ISourcePosition
     /// <param name="ExceptionCode">The error code from <see cref="ParseExceptions"/>.</param>
     public ParserException(ParseExceptions ExceptionCode) : base(GetErrorDescription(ExceptionCode))
     {
+        Reason = Message;
         ErrorCode = ExceptionCode;
     }
 
@@ -86,6 +116,7 @@ public class ParserException : Exception, ISourcePosition
     public ParserException(ParseExceptions ExceptionCode, int line, int col)
         : base(FormatMessage(GetErrorDescription(ExceptionCode), line, col, null))
     {
+        Reason = GetErrorDescription(ExceptionCode);
         ErrorCode = ExceptionCode;
         Line = line;
         Column = col;
@@ -97,6 +128,7 @@ public class ParserException : Exception, ISourcePosition
     public ParserException(ParseExceptions ExceptionCode, int line, int col, string? context)
         : base(FormatMessage(GetErrorDescription(ExceptionCode), line, col, context))
     {
+        Reason = GetErrorDescription(ExceptionCode);
         ErrorCode = ExceptionCode;
         Line = line;
         Column = col;
@@ -109,6 +141,7 @@ public class ParserException : Exception, ISourcePosition
     public ParserException(ParseExceptions ExceptionCode, Token? token)
         : base(FormatMessage(GetErrorDescription(ExceptionCode), token))
     {
+        Reason = GetErrorDescription(ExceptionCode);
         ErrorCode = ExceptionCode;
         if (token != null)
         {
@@ -121,9 +154,10 @@ public class ParserException : Exception, ISourcePosition
     /// <summary>
     /// Formats the error message with location and context.
     /// </summary>
-    private static string FormatMessage(string message, int line, int col, string? context)
+    private static string FormatMessage(string message, int line, int col, string? context, string? file = null)
     {
         string location = line <= 0 ? "" : col > 0 ? $" at Line {line}:{col}" : $" at Line {line}";
+        if (line > 0 && file is not null) location += $" in {System.IO.Path.GetFileName(file)}";
         string contextStr = !string.IsNullOrEmpty(context) ? $" (near '{context}')" : "";
         return $"{message}{location}{contextStr}";
     }

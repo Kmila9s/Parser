@@ -36,6 +36,19 @@ public static class TypeMarks
     public static bool IsResolved(Variable v) =>
         v.EnumTypeName is null && (v.TypeMark is null || !Unresolved.Contains(v.TypeMark));
 
+    private static readonly HashSet<string> BitVectorMarks = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "std_logic_vector", "std_ulogic_vector", "bit_vector",
+    };
+
+    /// <summary>
+    /// True for the closely related one-dimensional vectors of bits (std_logic_vector,
+    /// std_ulogic_vector, bit_vector, signed, unsigned and their unresolved forms): a
+    /// type conversion between two of them keeps the bits.
+    /// </summary>
+    public static bool IsBitVector(string typeMark) =>
+        BitVectorMarks.Contains(typeMark) || SignedMarks.Contains(typeMark) || UnsignedMarks.Contains(typeMark);
+
     /// <summary>The numeric interpretation of a vector of <paramref name="typeMark"/>.</summary>
     public static Signedness SignednessOf(string? typeMark) =>
         typeMark is null ? Signedness.None
