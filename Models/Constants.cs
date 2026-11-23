@@ -278,10 +278,10 @@ public class Constants{
     public const string LITERAL_BOOLEAN = "true|false";
     /// <summary>
     /// Matches std_logic single-bit literals: the nine IEEE 1164 values
-    /// 'U' 'X' '0' '1' 'Z' 'W' 'L' 'H' '-' (plus the legacy lower-case 'u'/'z'
-    /// and the one-character strings "0" "1" "U" "Z").
+    /// 'U' 'X' '0' '1' 'Z' 'W' 'L' 'H' '-' (plus the legacy lower-case 'u'/'z').
+    /// A one-character string (<c>"0"</c>) is a one-bit vector, not a std_logic (G95).
     /// </summary>
-    public const string LITERAL_STD_LOGIC = "^('[01UuXZzWLH-]'|\"[01UuZz]\")$";
+    public const string LITERAL_STD_LOGIC = "^'[01UuXZzWLH-]'$";
     /// <summary>
     /// Combined pattern for all literal types.
     /// </summary>
