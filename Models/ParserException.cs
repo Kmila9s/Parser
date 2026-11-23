@@ -21,6 +21,30 @@ public class ParserException : Exception, ISourcePosition
     public string? Context { get; }
 
     /// <summary>
+    /// The source file the position is in, when it is not the parsed text itself (an
+    /// error of an elaborated design located back in the child's file, G82); null otherwise.
+    /// </summary>
+    public string? File { get; private init; }
+
+    private ParserException(string message, int line, int col, string? context, ParseExceptions? code, string? file, Exception inner)
+        : base(message, inner)
+    {
+        Line = line;
+        Column = col;
+        Context = context;
+        ErrorCode = code;
+        File = file;
+    }
+
+    /// <summary>
+    /// This error located at <paramref name="line"/> of <paramref name="file"/> (the
+    /// origin of a line of an elaborated text): same message, the position rewritten.
+    /// </summary>
+    public ParserException Relocated(string file, int line) =>
+        new(System.Text.RegularExpressions.Regex.Replace(Message, $@"\bat Line {Line}\b", $"at Line {line} in {System.IO.Path.GetFileName(file)}"),
+            line, Column, Context, ErrorCode, file, this);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="ParserException"/> class.
     /// </summary>
     public ParserException() : base("Unknown parsing error") { }

@@ -29,6 +29,9 @@ public sealed class Diagnostic
     /// <summary>1-based line number in the source file.</summary>
     public int Line { get; init; }
 
+    /// <summary>The file <see cref="Line"/> is in when it is not the parsed text itself (G82: an elaborated design's child); null otherwise.</summary>
+    public string? File { get; init; }
+
     /// <summary>1-based starting column (inclusive).</summary>
     public int StartColumn { get; init; }
 
